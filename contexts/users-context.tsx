@@ -3,6 +3,8 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
 import type { User } from "@/lib/types";
 import { api, type Usuario } from "@/services/api";
+import { useAuth } from "@/contexts/auth-context";
+import { useError } from "@/contexts/error-context";
 
 interface UsersContextType {
   users: User[];
@@ -58,11 +60,18 @@ const convertUserToUsuario = (user: Partial<User>): Partial<Usuario> => {
 export function UsersProvider({ children }: { children: ReactNode }) {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { showError } = useError();
 
-  // Cargar usuarios del backend al montar
+  // Cargar usuarios solo cuando el usuario esté autenticado
   useEffect(() => {
-    refreshUsers();
-  }, []);
+    if (!authLoading && isAuthenticated) {
+      refreshUsers();
+    } else if (!authLoading && !isAuthenticated) {
+      setUsers([]);
+      setLoading(false);
+    }
+  }, [isAuthenticated, authLoading]);
 
   const refreshUsers = async () => {
     try {
@@ -72,6 +81,11 @@ export function UsersProvider({ children }: { children: ReactNode }) {
       setUsers(convertedUsers);
     } catch (error) {
       console.error('Error cargando usuarios:', error);
+      showError(
+        "Error al cargar usuarios",
+        "No se pudieron obtener los usuarios del servidor.",
+        error instanceof Error ? error.message : String(error),
+      );
       setUsers([]);
     } finally {
       setLoading(false);

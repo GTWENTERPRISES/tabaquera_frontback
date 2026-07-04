@@ -6,6 +6,8 @@ import { AuthProvider } from "@/contexts/auth-context";
 import { LotProvider } from "@/contexts/lot-context";
 import { UsersProvider } from "@/contexts/users-context";
 import { NotificationProvider } from "@/contexts/notification-context";
+import { ErrorProvider } from "@/contexts/error-context";
+import { ErrorModal } from "@/components/ui/error-modal";
 import { Toaster } from "@/components/ui/sonner";
 import ScrollRestoration from "@/components/ScrollRestoration";
 import "./globals.css";
@@ -44,24 +46,27 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}
         suppressHydrationWarning
       >
-        <AuthProvider>
-          <UsersProvider>
-            <LotProvider>
-              <NotificationProvider>
-                <ThemeProvider
-                  attribute="class"
-                  defaultTheme="dark"
-                  enableSystem
-                  disableTransitionOnChange
-                >
-                  <ScrollRestoration />
-                  {children}
-                  <Toaster />
-                </ThemeProvider>
-              </NotificationProvider>
-            </LotProvider>
-          </UsersProvider>
-        </AuthProvider>
+        <ErrorProvider>
+          <AuthProvider>
+            <UsersProvider>
+              <LotProvider>
+                <NotificationProvider>
+                  <ThemeProvider
+                    attribute="class"
+                    defaultTheme="dark"
+                    enableSystem
+                    disableTransitionOnChange
+                  >
+                    <ScrollRestoration />
+                    {children}
+                    <ErrorModal />
+                    <Toaster />
+                  </ThemeProvider>
+                </NotificationProvider>
+              </LotProvider>
+            </UsersProvider>
+          </AuthProvider>
+        </ErrorProvider>
         {process.env.NODE_ENV === "production" && <Analytics />}
       </body>
     </html>

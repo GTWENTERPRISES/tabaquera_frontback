@@ -32,13 +32,26 @@ import { api } from "@/services/api";
 import { toast } from "sonner";
 
 const lotSchema = z.object({
-  code: z.string().min(6, "Codigo invalido"),
+  code: z
+    .string()
+    .min(6, "El código debe tener al menos 6 caracteres")
+    .regex(/^LT-\d{4}-\d{3,}$/, "Formato inválido. Ejemplo: LT-2026-001"),
   supplier: z.string().min(1, "Selecciona un proveedor"),
-  entryDate: z.string().min(1, "Selecciona una fecha"),
-  currentWeight: z.coerce.number().min(1, "Peso invalido"),
-  quantityBales: z.coerce.number().min(1, "Cantidad de bultos invalida"),
-  variety: z.string().min(1, "Selecciona tipo de tabaco"),
-  notes: z.string().optional(),
+  entryDate: z.string().min(1, "Selecciona una fecha de ingreso"),
+  currentWeight: z.coerce
+    .number({ invalid_type_error: "Ingresa un peso válido" })
+    .min(1, "El peso debe ser mayor a 0 kg")
+    .max(100000, "El peso no puede superar 100,000 kg"),
+  quantityBales: z.coerce
+    .number({ invalid_type_error: "Ingresa una cantidad válida" })
+    .int("La cantidad debe ser un número entero")
+    .min(1, "La cantidad de bultos debe ser al menos 1")
+    .max(10000, "La cantidad no puede superar 10,000 bultos"),
+  variety: z.string().min(1, "Selecciona el tipo de tabaco"),
+  notes: z
+    .string()
+    .max(500, "Las observaciones no pueden superar 500 caracteres")
+    .optional(),
 });
 
 type LotFormValues = z.infer<typeof lotSchema>;

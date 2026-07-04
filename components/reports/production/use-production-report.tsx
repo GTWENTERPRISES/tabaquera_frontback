@@ -5,10 +5,11 @@ import { useLots } from "@/contexts/lot-context";
 import { STAGES, STAGE_LABELS } from "@/lib/constants";
 import type { DateRange } from "react-day-picker";
 
-export function useProductionReport(dateRange?: DateRange) {
+export function useProductionReport(initialDateRange?: DateRange) {
   const { lots } = useLots();
   const [stageFilter, setStageFilter] = useState<string>("all");
   const [supplierFilter, setSupplierFilter] = useState<string>("all");
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(initialDateRange);
 
   // Filtrar lotes por fecha
   const filteredByDate = useMemo(() => {
@@ -126,6 +127,8 @@ export function useProductionReport(dateRange?: DateRange) {
     setStageFilter,
     supplierFilter,
     setSupplierFilter,
+    dateRange,
+    setDateRange,
     filteredLots,
     totalWeight,
     totalLots,

@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useLots } from "@/contexts/lot-context";
 import { STAGES } from "@/lib/constants";
 import type { Lot, Stage } from "@/lib/types";
+import type { Alerta } from "@/services/api";
 
 interface DelayAlert {
   id: string;
@@ -20,195 +21,153 @@ interface DelayAlert {
   acknowledged: boolean;
 }
 
+const severityFromApi = (s: string): DelayAlert["severity"] => {
+  switch (s) {
+    case "critica": return "critical";
+    case "alta": return "high";
+    case "media": return "medium";
+    default: return "low";
+  }
+};
+
+const typeFromApi = (t: string): DelayAlert["type"] => {
+  switch (t) {
+    case "cuello_botella": return "bottleneck";
+    case "calidad_rechazada": return "quality";
+    case "sistema": return "system";
+    default: return "delay";
+  }
+};
+
 export function useDelayAlerts() {
-  const { lots, addObservation } = useLots();
-  const [alerts, setAlerts] = useState<DelayAlert[]>([]);
+  const { lots, alertas, addObservation } = useLots();
+  const [localAlerts, setLocalAlerts] = useState<DelayAlert[]>([]);
   const [showAcknowledged, setShowAcknowledged] = useState(false);
   const [acknowledgingIds, setAcknowledgingIds] = useState<string[]>([]);
   const [successIds, setSuccessIds] = useState<string[]>([]);
 
-  const stageThresholds: Record<Stage, number> = {
-    reception: 4,
-    classification: 6,
-    selection: 5,
-    packaging: 3,
-    distribution: 8,
-  };
+  // Map real backend alertas to DelayAlert shape
+  const backendAlerts = useMemo<DelayAlert[]>(() => {
+    return alertas.map((a: Alerta) => ({
+      id: `api-${a.id}`,
+      type: typeFromApi(a.tipo),
+      severity: severityFromApi(a.severidad),
+      title: a.titulo,
+      description: a.descripcion,
+      lotId: a.lote?.toString(),
+      lotCode: a.lote_codigo,
+      stage: undefined,
+      durationHours: 0,
+      thresholdHours: 0,
+      date: a.fecha_creacion,
+      acknowledged: a.estado !== "activa",
+    }));
+  }, [alertas]);
 
-  const detectDelays = useMemo(() => {
-    const now = new Date();
-    const delayAlerts: DelayAlert[] = [];
-
-    lots.forEach((lot) => {
-      if (
-        lot.status === "active" ||
-        lot.status === "in_production" ||
-        lot.status === "waiting"
-      ) {
-        const currentStage = lot.currentStage;
-        const thresholdHours = stageThresholds[currentStage];
-
-        const currentStageHistory = lot.stageHistory?.find(
-          (h) => h.stage === currentStage && !h.endTime,
-        );
-
-        if (currentStageHistory) {
-          const startTime = new Date(currentStageHistory.startTime);
-          const durationMs = now.getTime() - startTime.getTime();
-          const durationHours = durationMs / (1000 * 60 * 60);
-
-          if (durationHours > thresholdHours) {
-            const severity =
-              durationHours > thresholdHours * 2
-                ? "critical"
-                : durationHours > thresholdHours * 1.5
-                  ? "high"
-                  : durationHours > thresholdHours * 1.2
-                    ? "medium"
-                    : "low";
-
-            delayAlerts.push({
-              id: `delay-${lot.id}-${Date.now()}`,
-              type: "delay",
-              severity,
-              title: `Retraso en ${currentStage}`,
-              description: `El lote ${lot.codigo || lot.code} lleva ${durationHours.toFixed(1)} horas en ${currentStage} (umbral: ${thresholdHours}h)`,
-              lotId: lot.id,
-              lotCode: lot.codigo || lot.code,
-              stage: currentStage,
-              durationHours,
-              thresholdHours,
-              date: new Date().toISOString(),
-              acknowledged: false,
-            });
-          }
-        }
-      }
-    });
-
-    return delayAlerts;
-  }, [lots]);
-
-  const detectBottlenecks = useMemo(() => {
-    const bottleneckAlerts: DelayAlert[] = [];
+  // Detect bottlenecks locally (still based on lot counts per stage)
+  const detectBottlenecks = useMemo<DelayAlert[]>(() => {
     const stageCounts: Record<Stage, number> = {
-      reception: 0,
-      classification: 0,
-      selection: 0,
-      packaging: 0,
-      distribution: 0,
+      reception: 0, classification: 0, selection: 0, packaging: 0, distribution: 0,
     };
-
     lots.forEach((lot) => {
       if (lot.status === "active" || lot.status === "in_production") {
         stageCounts[lot.currentStage]++;
       }
     });
 
-    const bottleneckThresholds: Record<Stage, number> = {
-      reception: 5,
-      classification: 4,
-      selection: 4,
-      packaging: 3,
-      distribution: 2,
+    const thresholds: Record<Stage, number> = {
+      reception: 5, classification: 4, selection: 4, packaging: 3, distribution: 2,
     };
 
-    STAGES.forEach((stage) => {
+    return STAGES.flatMap((stage) => {
       const count = stageCounts[stage];
-      const threshold = bottleneckThresholds[stage];
-
-      if (count >= threshold) {
-        const severity =
-          count >= threshold * 2
-            ? "critical"
-            : count >= threshold * 1.5
-              ? "high"
-              : count >= threshold * 1.2
-                ? "medium"
-                : "low";
-
-        bottleneckAlerts.push({
-          id: `bottleneck-${stage}-${Date.now()}`,
-          type: "bottleneck",
-          severity,
-          title: `Cuello de botella en ${stage}`,
-          description: `${count} lotes pendientes en ${stage} (umbral: ${threshold})`,
-          stage,
-          durationHours: 0,
-          thresholdHours: 0,
-          date: new Date().toISOString(),
-          acknowledged: false,
-        });
-      }
-    });
-
-    return bottleneckAlerts;
-  }, [lots]);
-
-  const detectQualityIssues = useMemo(() => {
-    const qualityAlerts: DelayAlert[] = [];
-    const recentRejectedLots = lots.filter((lot) => {
-      if (lot.status === "rejected") {
-        const rejectedDate = new Date(lot.lastUpdatedAt || Date.now());
-        const now = new Date();
-        const diffHours =
-          (now.getTime() - rejectedDate.getTime()) / (1000 * 60 * 60);
-        return diffHours < 24;
-      }
-      return false;
-    });
-
-    if (recentRejectedLots.length > 0) {
-      qualityAlerts.push({
-        id: `quality-${Date.now()}`,
-        type: "quality",
-        severity: recentRejectedLots.length > 3 ? "high" : "medium",
-        title: "Lotes rechazados recientemente",
-        description: `${recentRejectedLots.length} lotes rechazados en las últimas 24 horas`,
+      const threshold = thresholds[stage];
+      if (count < threshold) return [];
+      const severity =
+        count >= threshold * 2 ? "critical"
+          : count >= threshold * 1.5 ? "high"
+          : count >= threshold * 1.2 ? "medium"
+          : "low";
+      return [{
+        id: `bottleneck-${stage}`,
+        type: "bottleneck" as const,
+        severity,
+        title: `Cuello de botella en ${stage}`,
+        description: `${count} lotes pendientes en ${stage} (umbral: ${threshold})`,
+        stage: stage as Stage,
         durationHours: 0,
         thresholdHours: 0,
         date: new Date().toISOString(),
         acknowledged: false,
-      });
-    }
-
-    return qualityAlerts;
+      }];
+    });
   }, [lots]);
 
+  // Detect delays using fecha_actualizacion (since stageHistory is empty)
+  const detectDelays = useMemo<DelayAlert[]>(() => {
+    const now = new Date();
+    const stageThresholds: Record<Stage, number> = {
+      reception: 4, classification: 6, selection: 5, packaging: 3, distribution: 8,
+    };
+
+    return lots
+      .filter((lot) =>
+        lot.status === "active" || lot.status === "in_production" || lot.status === "waiting"
+      )
+      .flatMap((lot) => {
+        const lastUpdate = new Date(lot.lastUpdatedAt || lot.fechaIngreso || now);
+        const durationHours = (now.getTime() - lastUpdate.getTime()) / (1000 * 60 * 60);
+        const threshold = stageThresholds[lot.currentStage] ?? 8;
+        if (durationHours <= threshold) return [];
+        const severity =
+          durationHours > threshold * 2 ? "critical"
+            : durationHours > threshold * 1.5 ? "high"
+            : durationHours > threshold * 1.2 ? "medium"
+            : "low";
+        return [{
+          id: `delay-${lot.id}`,
+          type: "delay" as const,
+          severity,
+          title: `Retraso en ${lot.currentStage}`,
+          description: `Lote ${lot.codigo || lot.code} lleva ${Math.round(durationHours)}h sin avanzar (umbral: ${threshold}h)`,
+          lotId: lot.id,
+          lotCode: lot.codigo || lot.code,
+          stage: lot.currentStage as Stage,
+          durationHours,
+          thresholdHours: threshold,
+          date: new Date().toISOString(),
+          acknowledged: false,
+        }];
+      });
+  }, [lots]);
+
+  // Merge: backend alerts take precedence, then local computed
   useEffect(() => {
-    const allAlerts = [
+    const merged = [
+      ...backendAlerts,
       ...detectDelays,
       ...detectBottlenecks,
-      ...detectQualityIssues,
     ];
-
-    const uniqueAlerts = allAlerts.filter(
-      (alert, index, self) =>
-        index ===
-        self.findIndex(
-          (a) =>
-            a.lotId === alert.lotId &&
-            a.type === alert.type &&
-            a.stage === alert.stage,
-        ),
-    );
-
-    setAlerts(uniqueAlerts);
-  }, [detectDelays, detectBottlenecks, detectQualityIssues]);
+    // Deduplicate: prefer backend alerts for same lot+type
+    const seen = new Set<string>();
+    const unique = merged.filter((alert) => {
+      const key = `${alert.type}-${alert.lotId ?? ""}-${alert.stage ?? ""}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    setLocalAlerts(unique);
+  }, [backendAlerts, detectDelays, detectBottlenecks]);
 
   const acknowledgeAlert = (alertId: string) => {
-    const alert = alerts.find((a) => a.id === alertId);
+    const alert = localAlerts.find((a) => a.id === alertId);
     if (!alert || acknowledgingIds.includes(alertId)) return;
 
     setAcknowledgingIds((prev) => [...prev, alertId]);
-
     window.setTimeout(() => {
-      setAlerts((prev) =>
-        prev.map((item) =>
-          item.id === alertId ? { ...item, acknowledged: true } : item,
-        ),
+      setLocalAlerts((prev) =>
+        prev.map((item) => item.id === alertId ? { ...item, acknowledged: true } : item),
       );
-
       if (alert.severity === "critical" && alert.lotId && alert.stage) {
         addObservation({
           lotId: alert.lotId,
@@ -219,33 +178,27 @@ export function useDelayAlerts() {
           userName: "Sistema",
         });
       }
-
       setAcknowledgingIds((prev) => prev.filter((id) => id !== alertId));
       setSuccessIds((prev) => [...prev, alertId]);
-
-      window.setTimeout(() => {
-        setSuccessIds((prev) => prev.filter((id) => id !== alertId));
-      }, 2000);
+      window.setTimeout(() => setSuccessIds((prev) => prev.filter((id) => id !== alertId)), 2000);
     }, 700);
   };
 
-  const filteredAlerts = alerts.filter((alert) =>
-    showAcknowledged ? true : !alert.acknowledged,
-  );
+  const filteredAlerts = localAlerts.filter((a) => showAcknowledged || !a.acknowledged);
 
   const alertStats = {
-    total: alerts.length,
-    unacknowledged: alerts.filter((a) => !a.acknowledged).length,
-    critical: alerts.filter((a) => a.severity === "critical").length,
+    total: localAlerts.length,
+    unacknowledged: localAlerts.filter((a) => !a.acknowledged).length,
+    critical: localAlerts.filter((a) => a.severity === "critical").length,
     byType: {
-      delay: alerts.filter((a) => a.type === "delay").length,
-      bottleneck: alerts.filter((a) => a.type === "bottleneck").length,
-      quality: alerts.filter((a) => a.type === "quality").length,
+      delay: localAlerts.filter((a) => a.type === "delay").length,
+      bottleneck: localAlerts.filter((a) => a.type === "bottleneck").length,
+      quality: localAlerts.filter((a) => a.type === "quality").length,
     },
   };
 
   return {
-    alerts,
+    alerts: localAlerts,
     showAcknowledged,
     setShowAcknowledged,
     acknowledgingIds,

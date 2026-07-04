@@ -8,6 +8,7 @@ import { ProductionReportPDF } from "@/lib/pdf-exports";
 import { subMonths, startOfMonth, endOfMonth, format, isWithinInterval } from "date-fns";
 import { es } from "date-fns/locale";
 import { api, type Lote, type InspeccionCalidad, type MovimientoLote } from "@/services/api";
+import { toast } from "sonner";
 
 export function useReportsView() {
   const { lots, inspecciones, movimientos } = useLots();
@@ -195,26 +196,29 @@ export function useReportsView() {
       .slice(0, 5);
   }, [filteredLots]);
 
-  // Efficiency data
+  // Efficiency data - real metric based on completed vs total lots per week
   const efficiencyData = useMemo(() => {
     const weeks = [];
     const today = new Date();
     for (let i = 7; i >= 0; i--) {
       weeks.push({
         week: `S${8 - i}`,
-        weekDate: new Date(today.getTime() - i * 7 * 24 * 60 * 60 * 1000),
+        weekStart: new Date(today.getTime() - (i + 1) * 7 * 24 * 60 * 60 * 1000),
+        weekEnd: new Date(today.getTime() - i * 7 * 24 * 60 * 60 * 1000),
       });
     }
 
-    return weeks.map(({ week }) => {
-      // Simple efficiency calculation based on lots completed vs total
-      const totalLots = lots.length || 1;
-      const completedLots = lots.filter((l) => l.estado === "finalizado").length;
-      const eficiencia = Math.round((completedLots / totalLots) * 100) || 85;
-      return {
-        week,
-        eficiencia: Math.min(100, Math.max(70, eficiencia + Math.floor(Math.random() * 10) - 5)),
-      };
+    return weeks.map(({ week, weekStart, weekEnd }) => {
+      const weekLots = lots.filter((l) => {
+        const fecha = new Date(l.fecha_ingreso);
+        return fecha >= weekStart && fecha <= weekEnd;
+      });
+      const totalWeekLots = weekLots.length || 1;
+      const completedWeekLots = weekLots.filter(
+        (l) => l.estado === "finalizado" || l.estado === "completado"
+      ).length;
+      const eficiencia = Math.round((completedWeekLots / totalWeekLots) * 100);
+      return { week, eficiencia: Math.min(100, eficiencia) };
     });
   }, [lots]);
 
@@ -229,8 +233,10 @@ export function useReportsView() {
       a.download = `reporte-produccion-${new Date().toISOString().slice(0, 10)}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
+      toast.success("PDF exportado correctamente");
     } catch (error) {
       console.error("Error al exportar PDF:", error);
+      toast.error("Error al generar el PDF");
     }
   };
 

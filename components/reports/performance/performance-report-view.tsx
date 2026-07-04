@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { pdf } from "@react-pdf/renderer";
 import { PerformanceReportPDF } from "@/lib/pdf-exports";
 import type { DateRange } from "react-day-picker";
+import { toast } from "sonner";
 import BackButton from "@/components/BackButton";
 import { usePerformanceReport } from "./use-performance-report";
 import { PerformanceFilters } from "./performance-filters";
@@ -31,7 +33,10 @@ export function PerformanceReportView({
     overallStats,
   } = usePerformanceReport(dateRange);
 
+  const [exporting, setExporting] = useState(false);
+
   const handleExportPDF = async () => {
+    setExporting(true);
     try {
       const blob = await pdf(
         <PerformanceReportPDF
@@ -49,8 +54,12 @@ export function PerformanceReportView({
       a.download = `reporte-rendimiento-${new Date().toISOString().split("T")[0]}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
+      toast.success("PDF exportado correctamente");
     } catch (error) {
       console.error("Error al exportar PDF:", error);
+      toast.error("Error al generar el PDF");
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -67,9 +76,9 @@ export function PerformanceReportView({
             botella
           </p>
         </div>
-        <Button onClick={handleExportPDF}>
+        <Button onClick={handleExportPDF} disabled={exporting}>
           <Download className="mr-2 h-4 w-4" />
-          Exportar PDF
+          {exporting ? "Generando..." : "Exportar PDF"}
         </Button>
       </div>
 

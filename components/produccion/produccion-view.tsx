@@ -103,7 +103,9 @@ export function ProduccionView() {
     };
   }, []);
 
-  const activeLots = lots.filter((lot) => lot.status === "active");
+  const activeLots = lots.filter(
+    (lot) => lot.status === "in_production" || lot.status === "active",
+  );
   const filteredLots = activeLots.filter(
     (lot) =>
       (lot.codigo || lot.code || "")

@@ -4,59 +4,32 @@ import { motion } from "framer-motion";
 import {
   Package,
   CheckCircle,
-  Clock,
   AlertTriangle,
   ScanLine,
   Activity,
+  Weight,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useLots } from "@/contexts/lot-context";
 
 const container = {
   hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.1,
-    },
-  },
+  show: { opacity: 1, transition: { staggerChildren: 0.1 } },
 };
-
-const item = {
-  hidden: { opacity: 0, y: 20 },
-  show: { opacity: 1, y: 0 },
-};
+const item = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } };
 
 export function KPICards() {
-  const { lots, qualityChecks } = useLots();
+  const { lots, stats, qualityChecks } = useLots();
 
-  // Total lotes
-  const totalLots = lots.length;
+  // Prefer backend stats when available, fall back to local computation
+  const totalLots = stats ? stats.lotes_activos + stats.lotes_pendientes + stats.lotes_completados : lots.length;
+  const inProduction = stats?.lotes_activos ?? lots.filter(l => l.status === "in_production" || l.status === "active").length;
+  const completed = stats?.lotes_completados ?? lots.filter(l => l.status === "completed").length;
+  const delayed = stats?.lotes_retrasados ?? 0;
+  const pendingQC = stats?.inspecciones_pendientes ?? qualityChecks.filter(qc => qc.status === "pending").length;
+  const passedQC = stats?.inspecciones_aprobadas ?? qualityChecks.filter(qc => qc.status === "passed").length;
 
-  // Lotes en producción (activos)
-  const inProduction = lots.filter((lot) => lot.status === "active").length;
-
-  // Completados
-  const completed = lots.filter((lot) => lot.status === "completed").length;
-
-  // Lotes retrasados (ejemplo: etapa con más de X horas sin avanzar)
-  const delayed = lots.filter((lot) => {
-    const lastStage = lot.stageHistory?.[lot.stageHistory.length - 1];
-    if (lastStage && !lastStage.endTime && lastStage.startTime) {
-      const hours =
-        (Date.now() - new Date(lastStage.startTime).getTime()) /
-        (1000 * 60 * 60);
-      return hours > 24; // > 24h = retrasado
-    }
-    return false;
-  });
-
-  // Pendientes QC
-  const pendingQC = qualityChecks.filter(
-    (qc) => qc.status === "pending",
-  ).length;
-
-  const stats = [
+  const kpis = [
     {
       label: "Total Lotes",
       value: totalLots,
@@ -83,11 +56,11 @@ export function KPICards() {
     },
     {
       label: "Retrasados",
-      value: delayed.length,
+      value: delayed,
       icon: AlertTriangle,
       color: "text-red-500",
       bgColor: "bg-red-500/10",
-      description: ">24h en misma etapa",
+      description: ">24h sin avanzar",
     },
     {
       label: "Pendientes QC",
@@ -99,7 +72,7 @@ export function KPICards() {
     },
     {
       label: "Calidad Aprobada",
-      value: qualityChecks.filter((qc) => qc.status === "passed").length,
+      value: passedQC,
       icon: CheckCircle,
       color: "text-emerald-500",
       bgColor: "bg-emerald-500/10",
@@ -114,29 +87,21 @@ export function KPICards() {
       animate="show"
       className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-6"
     >
-      {stats.map((stat) => {
+      {kpis.map((stat) => {
         const Icon = stat.icon;
         return (
           <motion.div key={stat.label} variants={item}>
             <Card className="overflow-hidden border-0 shadow-sm hover:shadow-md transition-shadow">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
-                  <div
-                    className={`flex h-10 w-10 items-center justify-center rounded-lg ${stat.bgColor}`}
-                  >
+                  <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${stat.bgColor}`}>
                     <Icon className={`h-5 w-5 ${stat.color}`} />
                   </div>
                 </div>
                 <div className="mt-3">
-                  <p className="text-2xl font-bold text-foreground">
-                    {stat.value}
-                  </p>
-                  <p className="text-sm font-medium text-foreground">
-                    {stat.label}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {stat.description}
-                  </p>
+                  <p className="text-2xl font-bold text-foreground">{stat.value}</p>
+                  <p className="text-sm font-medium text-foreground">{stat.label}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{stat.description}</p>
                 </div>
               </CardContent>
             </Card>

@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { useLots } from "@/contexts/lot-context";
-import { exportTraceabilityReportToCSV } from "@/lib/export-utils";
+import { pdf } from "@react-pdf/renderer";
+import { TraceabilityReportPDF } from "@/lib/pdf-exports";
+import { toast } from "sonner";
 import type { Movement, Observation, SystemEvent } from "@/lib/types";
 
 export function useTraceabilityReport() {
@@ -81,13 +83,22 @@ export function useTraceabilityReport() {
   ).length;
   const lotObservations = filteredEvents.filter((e) => "text" in e).length;
 
-  const handleExport = () => {
-    if (selectedLotData) {
-      exportTraceabilityReportToCSV(
-        selectedLotData,
-        filteredEvents,
-        stageHistory,
-      );
+  const handleExport = async () => {
+    if (!selectedLotData) return;
+    try {
+      const blob = await pdf(
+        <TraceabilityReportPDF lot={selectedLotData as any} />,
+      ).toBlob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `trazabilidad-${selectedLotData.codigo || selectedLotData.code}-${new Date().toISOString().slice(0, 10)}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("PDF exportado correctamente");
+    } catch (error) {
+      console.error("Error al exportar PDF:", error);
+      toast.error("Error al generar el PDF");
     }
   };
 

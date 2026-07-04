@@ -1,5 +1,5 @@
-import { EstadosView } from "@/components/estados/estados-view"
+import { EstadosView } from "@/components/estados/estados-view";
 
 export default function EstadosPage() {
-  return <EstadosView />
+  return <EstadosView />;
 }

@@ -17,27 +17,21 @@ export function CriticalLots() {
 
   const currentUrl = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
 
-  // Lotes retrasados
+  // Lotes retrasados: en producción y sin cambios en más de 24h
   const delayedLots = lots
     .filter((lot) => {
-      const lastStage = lot.stageHistory?.[lot.stageHistory.length - 1];
-      if (lastStage && !lastStage.endTime && lastStage.startTime) {
-        const hours =
-          (Date.now() - new Date(lastStage.startTime).getTime()) /
-          (1000 * 60 * 60);
-        return hours > 24; // > 24h = retrasado
-      }
-      return false;
+      const isActive =
+        lot.status === "in_production" ||
+        lot.status === "active" ||
+        lot.status === "waiting";
+      if (!isActive) return false;
+      const lastUpdate = new Date(lot.lastUpdatedAt || lot.fechaIngreso || Date.now());
+      const hours = (Date.now() - lastUpdate.getTime()) / (1000 * 60 * 60);
+      return hours > 24;
     })
     .map((lot) => {
-      const lastStage = lot.stageHistory?.[lot.stageHistory.length - 1];
-      let hours = 0;
-      if (lastStage && lastStage.startTime) {
-        hours = Math.round(
-          (Date.now() - new Date(lastStage.startTime).getTime()) /
-            (1000 * 60 * 60),
-        );
-      }
+      const lastUpdate = new Date(lot.lastUpdatedAt || lot.fechaIngreso || Date.now());
+      const hours = Math.round((Date.now() - lastUpdate.getTime()) / (1000 * 60 * 60));
       return { ...lot, hours };
     });
 

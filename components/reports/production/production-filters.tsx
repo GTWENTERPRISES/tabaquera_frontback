@@ -15,6 +15,7 @@ import type { DateRange } from "react-day-picker";
 
 interface ProductionFiltersProps {
   dateRange: DateRange | undefined;
+  onDateChange: (date: DateRange | undefined) => void;
   stageFilter: string;
   onStageFilterChange: (value: string) => void;
   supplierFilter: string;
@@ -24,6 +25,7 @@ interface ProductionFiltersProps {
 
 export function ProductionFilters({
   dateRange,
+  onDateChange,
   stageFilter,
   onStageFilterChange,
   supplierFilter,
@@ -42,7 +44,7 @@ export function ProductionFilters({
         <div className="grid gap-4 md:grid-cols-3">
           <div className="space-y-2">
             <label className="text-sm font-medium">Rango de fechas</label>
-            <DatePickerWithRange date={dateRange} />
+            <DatePickerWithRange date={dateRange} onDateChange={onDateChange} />
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Etapa</label>

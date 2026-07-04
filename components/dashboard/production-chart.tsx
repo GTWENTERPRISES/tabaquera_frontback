@@ -1,58 +1,38 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useMemo } from "react"
 import { motion } from "framer-motion"
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { api } from "@/services/api"
+import { useLots } from "@/contexts/lot-context"
 
 export function ProductionChart() {
-  const [weeklyData, setWeeklyData] = useState<Array<{ name: string; produccion: number }>>([]);
-  const [monthlyData, setMonthlyData] = useState<Array<{ name: string; produccion: number }>>([]);
+  const { lots } = useLots();
 
-  useEffect(() => {
-    const loadProductionData = async () => {
-      try {
-        const response = await api.getLotes();
-        const lotes = response.results;
-        
-        // Calcular producción semanal (últimos 7 días)
-        const today = new Date();
-        const weekData = ["Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom"].map((day, index) => {
-          const date = new Date(today);
-          date.setDate(today.getDate() - (6 - index));
-          
-          const count = lotes.filter(lote => {
-            const loteDate = new Date(lote.fecha_ingreso);
-            return loteDate.toDateString() === date.toDateString();
-          }).length;
-          
-          return { name: day, produccion: count };
-        });
-        
-        // Calcular producción mensual (último año)
-        const monthData = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"].map((month, index) => {
-          const count = lotes.filter(lote => {
-            const loteDate = new Date(lote.fecha_ingreso);
-            return loteDate.getMonth() === index && loteDate.getFullYear() === today.getFullYear();
-          }).length;
-          
-          return { name: month, produccion: count };
-        });
-        
-        setWeeklyData(weekData);
-        setMonthlyData(monthData);
-      } catch (error) {
-        console.error('Error cargando datos de producción:', error);
-        // Datos por defecto si hay error
-        setWeeklyData(["Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom"].map(day => ({ name: day, produccion: 0 })));
-        setMonthlyData(["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"].map(month => ({ name: month, produccion: 0 })));
-      }
-    };
+  const weeklyData = useMemo(() => {
+    const today = new Date();
+    return ["Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom"].map((day, index) => {
+      const date = new Date(today);
+      date.setDate(today.getDate() - (6 - index));
+      const count = lots.filter(lote => {
+        const loteDate = new Date(lote.fechaIngreso || lote.entryDate || "");
+        return loteDate.toDateString() === date.toDateString();
+      }).length;
+      return { name: day, produccion: count };
+    });
+  }, [lots]);
 
-    loadProductionData();
-  }, []);
+  const monthlyData = useMemo(() => {
+    const today = new Date();
+    return ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"].map((month, index) => {
+      const count = lots.filter(lote => {
+        const loteDate = new Date(lote.fechaIngreso || lote.entryDate || "");
+        return loteDate.getMonth() === index && loteDate.getFullYear() === today.getFullYear();
+      }).length;
+      return { name: month, produccion: count };
+    });
+  }, [lots]);
 
   return (
     <motion.div
@@ -82,22 +62,9 @@ export function ProductionChart() {
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                     <XAxis dataKey="name" className="text-xs" tick={{ fill: "hsl(var(--muted-foreground))" }} />
-                    <YAxis className="text-xs" tick={{ fill: "hsl(var(--muted-foreground))" }} />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "hsl(var(--card))",
-                        border: "1px solid hsl(var(--border))",
-                        borderRadius: "8px",
-                      }}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="produccion"
-                      stroke="hsl(var(--primary))"
-                      strokeWidth={2}
-                      fillOpacity={1}
-                      fill="url(#colorProd)"
-                    />
+                    <YAxis className="text-xs" tick={{ fill: "hsl(var(--muted-foreground))" }} allowDecimals={false} />
+                    <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }} />
+                    <Area type="monotone" dataKey="produccion" stroke="hsl(var(--primary))" strokeWidth={2} fillOpacity={1} fill="url(#colorProd)" />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -108,14 +75,8 @@ export function ProductionChart() {
                   <BarChart data={monthlyData}>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                     <XAxis dataKey="name" className="text-xs" tick={{ fill: "hsl(var(--muted-foreground))" }} />
-                    <YAxis className="text-xs" tick={{ fill: "hsl(var(--muted-foreground))" }} />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "hsl(var(--card))",
-                        border: "1px solid hsl(var(--border))",
-                        borderRadius: "8px",
-                      }}
-                    />
+                    <YAxis className="text-xs" tick={{ fill: "hsl(var(--muted-foreground))" }} allowDecimals={false} />
+                    <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }} />
                     <Bar dataKey="produccion" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>

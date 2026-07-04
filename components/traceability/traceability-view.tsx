@@ -25,7 +25,6 @@ import { LotTimeline } from "@/components/lots/lot-timeline";
 import { useLots } from "@/contexts/lot-context";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import BackButton from "@/components/BackButton";
 import type { Trazabilidad } from "@/services/api";
 
 interface TraceabilityViewProps {
@@ -69,7 +68,6 @@ export function TraceabilityView({ lotId }: TraceabilityViewProps) {
 
   return (
     <div className="space-y-6">
-      <BackButton />
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}

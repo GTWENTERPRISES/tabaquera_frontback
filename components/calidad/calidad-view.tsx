@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Download, FileText } from "lucide-react";
+import { Plus, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -14,9 +14,9 @@ import { CalidadStats } from "@/components/calidad/calidad-stats";
 import { CalidadTable } from "@/components/calidad/calidad-table";
 import { CalidadNewDialog } from "@/components/calidad/calidad-new-dialog";
 import { useLots } from "@/contexts/lot-context";
-import { exportQualityToCSV } from "@/lib/export-utils";
 import { pdf } from "@react-pdf/renderer";
 import { QualityReportPDF } from "@/lib/pdf-exports";
+import { toast } from "sonner";
 
 export function CalidadView() {
   const { qualityChecks } = useLots();
@@ -55,8 +55,10 @@ export function CalidadView() {
       a.download = `reporte-calidad-${new Date().toISOString().split("T")[0]}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
+      toast.success("PDF exportado correctamente");
     } catch (error) {
       console.error("Error al exportar PDF:", error);
+      toast.error("Error al generar el PDF");
     }
   };
 
@@ -73,16 +75,7 @@ export function CalidadView() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Button
-            variant="ghost"
-            onClick={() => exportQualityToCSV(filteredChecks)}
-            className="gap-2"
-            size="sm"
-          >
-            <Download className="h-4 w-4" />
-            <span className="hidden sm:inline">Exportar CSV</span>
-          </Button>
-          <Button
-            variant="ghost"
+            variant="outline"
             onClick={handleExportPDF}
             className="gap-2"
             size="sm"

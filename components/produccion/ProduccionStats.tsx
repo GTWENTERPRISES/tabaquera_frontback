@@ -8,8 +8,9 @@ import type { Stage } from "@/lib/types";
 
 export function ProduccionStats() {
   const { lots } = useLots();
-  const activeLots = lots.filter((lot) => lot.status === "active");
-  
+  const activeLots = lots.filter(
+    (lot) => lot.status === "in_production" || lot.status === "active",
+  );
   const stats = {
     misLotes: activeLots.length,
     pendientes: activeLots.filter((lot) => {

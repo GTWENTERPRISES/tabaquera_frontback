@@ -14,6 +14,7 @@ import type { DateRange } from "react-day-picker";
 
 interface QualityFiltersProps {
   dateRange: DateRange | undefined;
+  onDateChange: (date: DateRange | undefined) => void;
   statusFilter: string;
   onStatusFilterChange: (value: string) => void;
   inspectorFilter: string;
@@ -23,6 +24,7 @@ interface QualityFiltersProps {
 
 export function QualityFilters({
   dateRange,
+  onDateChange,
   statusFilter,
   onStatusFilterChange,
   inspectorFilter,
@@ -41,7 +43,7 @@ export function QualityFilters({
         <div className="grid gap-4 md:grid-cols-3">
           <div className="space-y-2">
             <label className="text-sm font-medium">Rango de fechas</label>
-            <DatePickerWithRange date={dateRange} />
+            <DatePickerWithRange date={dateRange} onDateChange={onDateChange} />
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Estado</label>

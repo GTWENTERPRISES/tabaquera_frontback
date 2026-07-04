@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { Download, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { pdf } from "@react-pdf/renderer";
 import { TraceabilityReportPDF } from "@/lib/pdf-exports";
 import type { DateRange } from "react-day-picker";
+import { toast } from "sonner";
 import { ReportFilters } from "@/components/reports/shared/report-filters";
 import BackButton from "@/components/BackButton";
 import { useTraceabilityReportView } from "./use-traceability-report-view";
@@ -16,6 +18,7 @@ import { TraceabilityStageHistoryTable } from "./traceability-stage-history-tabl
 
 export function ReporteTrazabilidadView() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [exporting, setExporting] = useState(false);
   const searchParams = useSearchParams();
   const {
     selectedLotId,
@@ -36,6 +39,7 @@ export function ReporteTrazabilidadView() {
 
   const handleExportPDF = async () => {
     if (!selectedLot) return;
+    setExporting(true);
     try {
       const blob = await pdf(
         <TraceabilityReportPDF lot={selectedLot as any} />,
@@ -46,8 +50,12 @@ export function ReporteTrazabilidadView() {
       a.download = `trazabilidad-${selectedLot.code || selectedLot.codigo}-${new Date().toISOString().split("T")[0]}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
+      toast.success("PDF exportado correctamente");
     } catch (error) {
       console.error("Error al exportar PDF:", error);
+      toast.error("Error al generar el PDF");
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -69,9 +77,9 @@ export function ReporteTrazabilidadView() {
           </p>
         </div>
         {selectedLot && (
-          <Button variant="ghost" onClick={handleExportPDF} className="gap-2">
+          <Button onClick={handleExportPDF} disabled={exporting} className="gap-2">
             <FileText className="h-4 w-4" />
-            Exportar PDF de Lote
+            {exporting ? "Generando..." : "Exportar PDF del Lote"}
           </Button>
         )}
       </div>

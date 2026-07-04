@@ -28,43 +28,95 @@ import { useAuth } from "@/contexts/auth-context";
 import { toast } from "sonner";
 import { scrollPositions } from "@/components/ScrollRestoration";
 
-const userSchema = z.object({
-  firstName: z.string().min(2, "Ingresa los nombres"),
-  lastName: z.string().min(2, "Ingresa los apellidos"),
-  username: z.string().min(3, "Ingresa el usuario"),
+const baseUserSchema = z.object({
+  firstName: z
+    .string()
+    .min(2, "Mínimo 2 caracteres")
+    .max(50, "Máximo 50 caracteres")
+    .regex(/^[a-zA-ZáéíóúÁÉÍÓÚñÑ ]+$/, "Solo se permiten letras"),
+  lastName: z
+    .string()
+    .min(2, "Mínimo 2 caracteres")
+    .max(50, "Máximo 50 caracteres")
+    .regex(/^[a-zA-ZáéíóúÁÉÍÓÚñÑ ]+$/, "Solo se permiten letras"),
+  username: z
+    .string()
+    .min(3, "Mínimo 3 caracteres")
+    .max(30, "Máximo 30 caracteres")
+    .regex(/^[a-zA-Z0-9._-]+$/, "Solo letras, números, puntos, guiones y guion bajo"),
   email: z
     .string()
-    .email("Correo invalido")
+    .min(1, "El correo es requerido")
+    .email("Ingresa un correo válido")
     .refine(
       (email) => !email.endsWith(".con"),
-      "Dominio '.con' no es valido (usa '.com')",
+      "Dominio '.con' no es válido (¿quisiste decir '.com'?)",
     ),
   phone: z
     .string()
-    .regex(/^\d{10}$/, "Telefono debe tener exactamente 10 digitos"),
-  role: z.enum(["admin", "supervisor", "operator", "quality"]),
-  department: z.enum([
-    "produccion",
-    "calidad",
-    "recepcion",
-    "clasificacion",
-    "seleccion",
-    "empaque",
-    "distribucion",
-    "administracion",
-  ]),
-  password: z
-    .string()
-    .refine((val) => val === "" || val.length >= 8, "Contrasena debe tener al menos 8 caracteres")
-    .refine((val) => val === "" || /[A-Z]/.test(val), "Debe tener al menos una letra mayuscula")
-    .refine((val) => val === "" || /[a-z]/.test(val), "Debe tener al menos una letra minuscula")
-    .refine((val) => val === "" || /[0-9]/.test(val), "Debe tener al menos un numero")
-    .refine((val) => val === "" || /[^A-Za-z0-9]/.test(val), "Debe tener al menos un caracter especial")
-    .optional(),
-  status: z.enum(["active", "inactive"]),
+    .regex(/^\d{10}$/, "El teléfono debe tener exactamente 10 dígitos"),
+  role: z.enum(["admin", "supervisor", "operator", "quality"], {
+    errorMap: () => ({ message: "Selecciona un rol" }),
+  }),
+  department: z.enum(
+    [
+      "produccion",
+      "calidad",
+      "recepcion",
+      "clasificacion",
+      "seleccion",
+      "empaque",
+      "distribucion",
+      "administracion",
+    ],
+    { errorMap: () => ({ message: "Selecciona un departamento" }) },
+  ),
+  status: z.enum(["active", "inactive"], {
+    errorMap: () => ({ message: "Selecciona un estado" }),
+  }),
 });
 
-type UserFormValues = z.infer<typeof userSchema>;
+const passwordRules = z
+  .string()
+  .min(8, "Mínimo 8 caracteres")
+  .refine((val) => /[A-Z]/.test(val), "Debe incluir al menos una letra mayúscula")
+  .refine((val) => /[a-z]/.test(val), "Debe incluir al menos una letra minúscula")
+  .refine((val) => /[0-9]/.test(val), "Debe incluir al menos un número")
+  .refine((val) => /[^A-Za-z0-9]/.test(val), "Debe incluir al menos un carácter especial (@#$%...)");
+
+// Al crear, la contraseña es obligatoria
+const createUserSchema = baseUserSchema.extend({
+  password: passwordRules,
+});
+
+// Al editar, la contraseña es opcional (vacía = no cambiar)
+const editUserSchema = baseUserSchema.extend({
+  password: z
+    .string()
+    .optional()
+    .refine(
+      (val) => !val || val.length === 0 || val.length >= 8,
+      "Mínimo 8 caracteres",
+    )
+    .refine(
+      (val) => !val || val.length === 0 || /[A-Z]/.test(val),
+      "Debe incluir al menos una letra mayúscula",
+    )
+    .refine(
+      (val) => !val || val.length === 0 || /[a-z]/.test(val),
+      "Debe incluir al menos una letra minúscula",
+    )
+    .refine(
+      (val) => !val || val.length === 0 || /[0-9]/.test(val),
+      "Debe incluir al menos un número",
+    )
+    .refine(
+      (val) => !val || val.length === 0 || /[^A-Za-z0-9]/.test(val),
+      "Debe incluir al menos un carácter especial",
+    ),
+});
+
+type UserFormValues = z.infer<typeof createUserSchema>;
 
 interface UserFormProps {
   initialValues?: Partial<User>;
@@ -169,8 +221,10 @@ export function UserForm({
     return values;
   }, [initialValues]);
 
+  const isEditing = !!initialValues?.id;
+
   const form = useForm<UserFormValues>({
-    resolver: zodResolver(userSchema),
+    resolver: zodResolver(isEditing ? editUserSchema : createUserSchema),
     defaultValues,
   });
 
@@ -189,22 +243,17 @@ export function UserForm({
         status: values.status,
       };
 
-      // Only include password if it's provided and not empty
-      const userDataWithPassword = values.password && values.password.trim() !== "" 
-        ? { ...userData, password: values.password } 
-        : userData;
+      const userDataWithPassword =
+        values.password && values.password.trim() !== ""
+          ? { ...userData, password: values.password }
+          : userData;
 
       if (initialValues?.id) {
         await updateUser(initialValues.id, userDataWithPassword);
-        toast.success("Usuario actualizado");
+        toast.success("Usuario actualizado correctamente");
       } else {
-        // For new users, ensure password is required
-        if (!values.password || values.password.trim() === "") {
-          toast.error("La contraseña es requerida para crear un usuario");
-          return;
-        }
-        await addUser(userDataWithPassword);
-        toast.success("Usuario creado");
+        await addUser(userDataWithPassword as typeof userData & { password: string });
+        toast.success("Usuario creado correctamente");
       }
 
       router.push("/dashboard/usuarios");
@@ -279,9 +328,20 @@ export function UserForm({
             name="phone"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Telefono (10 digitos)</FormLabel>
+                <FormLabel>Teléfono (10 dígitos)</FormLabel>
                 <FormControl>
-                  <Input placeholder="0984324321" {...field} />
+                  <Input
+                    placeholder="0984324321"
+                    type="tel"
+                    inputMode="numeric"
+                    maxLength={10}
+                    {...field}
+                    onChange={(e) => {
+                      // Strip any non-digit character in real time
+                      const digits = e.target.value.replace(/\D/g, "").slice(0, 10);
+                      field.onChange(digits);
+                    }}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -347,9 +407,9 @@ export function UserForm({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>
-                  {initialValues
-                    ? "Nueva contrasena (opcional)"
-                    : "Contrasena temporal"}
+                  {isEditing
+                    ? "Nueva contraseña (opcional)"
+                    : "Contraseña temporal *"}
                 </FormLabel>
                 <FormControl>
                   <Input type="password" placeholder="Golden@2026" {...field} />

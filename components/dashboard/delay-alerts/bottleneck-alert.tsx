@@ -14,7 +14,7 @@ export function BottleneckAlert() {
   const stageCounts = STAGES.map((stage) => ({
     stage,
     label: STAGE_LABELS[stage],
-    count: lots.filter((l) => l.currentStage === stage && l.status === "active").length,
+    count: lots.filter((l) => l.currentStage === stage && (l.status === "in_production" || l.status === "active")).length,
   }));
 
   const bottleneck = stageCounts.reduce(

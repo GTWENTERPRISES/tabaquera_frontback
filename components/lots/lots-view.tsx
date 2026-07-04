@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Plus, Download, FileText } from "lucide-react";
+import { Plus, FileText } from "lucide-react";
 import { useLots } from "@/contexts/lot-context";
 import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui/button";
@@ -10,9 +10,9 @@ import { LotsStatsCards } from "@/components/lots/lots-stats-cards";
 import { LotsFilters } from "@/components/lots/lots-filters";
 import { LotsTable } from "@/components/lots/lots-table";
 import { LotFormDialog } from "@/components/lots/lot-form-dialog";
-import { exportLotsToCSV } from "@/lib/export-utils";
 import { pdf } from "@react-pdf/renderer";
 import { ProductionReportPDF } from "@/lib/pdf-exports";
+import { toast } from "sonner";
 
 export function LotsView() {
   const { filteredLots, filters, setFilters, stats, isLoading } = useLots();
@@ -62,8 +62,10 @@ export function LotsView() {
       a.download = `reporte-lotes-${new Date().toISOString().slice(0, 10)}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
+      toast.success("PDF exportado correctamente");
     } catch (error) {
       console.error("Error al exportar PDF:", error);
+      toast.error("Error al generar el PDF");
     }
   };
 
@@ -85,16 +87,7 @@ export function LotsView() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Button
-            variant="ghost"
-            onClick={() => exportLotsToCSV(filteredLots)}
-            className="gap-2"
-            size="sm"
-          >
-            <Download className="h-4 w-4" />
-            <span className="hidden sm:inline">Exportar CSV</span>
-          </Button>
-          <Button
-            variant="ghost"
+            variant="outline"
             onClick={handleExportPDF}
             className="gap-2"
             size="sm"

@@ -1,44 +1,27 @@
 "use client"
 
-import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { api } from "@/services/api"
+import { useLots } from "@/contexts/lot-context"
 
 export function QualityChart() {
-  const [data, setData] = useState([
-    { name: "Aprobados", value: 0, color: "#22c55e" },
-    { name: "Rechazados", value: 0, color: "#ef4444" },
-    { name: "Pendientes", value: 0, color: "#f59e0b" },
-  ]);
+  const { stats, qualityChecks } = useLots();
 
-  useEffect(() => {
-    const loadQualityData = async () => {
-      try {
-        const response = await api.getInspeccionesCalidad();
-        const inspecciones = response.results;
-        
-        const aprobados = inspecciones.filter(q => 
-          q.estado_calidad === "aprobado" || q.estado_calidad === "aprobado_con_observaciones"
-        ).length;
-        const rechazados = inspecciones.filter(q => q.estado_calidad === "rechazado").length;
-        const pendientes = inspecciones.filter(q => 
-          q.estado_calidad === "pendiente" || q.estado_calidad === "en_inspeccion"
-        ).length;
+  // Prefer backend stats when available
+  const aprobados = stats?.inspecciones_aprobadas ?? qualityChecks.filter(q =>
+    q.status === "passed" || q.status === "passed_with_notes"
+  ).length;
+  const rechazados = stats?.inspecciones_rechazadas ?? qualityChecks.filter(q => q.status === "failed").length;
+  const pendientes = stats?.inspecciones_pendientes ?? qualityChecks.filter(q =>
+    q.status === "pending" || q.status === "in_progress"
+  ).length;
 
-        setData([
-          { name: "Aprobados", value: aprobados, color: "#22c55e" },
-          { name: "Rechazados", value: rechazados, color: "#ef4444" },
-          { name: "Pendientes", value: pendientes, color: "#f59e0b" },
-        ]);
-      } catch (error) {
-        console.error('Error cargando datos de calidad:', error);
-      }
-    };
-
-    loadQualityData();
-  }, []);
+  const data = [
+    { name: "Aprobados", value: aprobados, color: "#22c55e" },
+    { name: "Rechazados", value: rechazados, color: "#ef4444" },
+    { name: "Pendientes", value: pendientes, color: "#f59e0b" },
+  ];
 
   return (
     <motion.div

@@ -26,7 +26,10 @@ import type {
   InspeccionCalidad,
   Lote as ApiLote,
   MovimientoLote,
+  Alerta,
 } from "@/services/api";
+import { useAuth } from "@/contexts/auth-context";
+import { useError } from "@/contexts/error-context";
 
 interface LotContextType {
   lots: Lot[];
@@ -63,19 +66,26 @@ interface LotContextType {
   addObservation: (obs: Omit<Observation, "id" | "date">) => Promise<void>;
   getObservationsByLotId: (lotId: string) => Observation[];
   systemEvents: SystemEvent[];
+  alertas: Alerta[];
   stats: Estadisticas | null;
   refreshLots: () => Promise<void>;
+  inspecciones: InspeccionCalidad[];
+  movimientos: MovimientoLote[];
 }
 
 const LotContext = createContext<LotContextType | undefined>(undefined);
 
-// Mapeo de etapas API a frontend
+// Mapeo de etapas API a frontend — incluye variantes sin tilde por robustez
 const stageMap: Record<string, Stage> = {
-  "Recepción": "reception",
+  "Recepción":     "reception",
+  "Recepcion":     "reception",
   "Clasificación": "classification",
-  "Selección": "selection",
-  "Empaque": "packaging",
-  "Distribución": "distribution",
+  "Clasificacion": "classification",
+  "Selección":     "selection",
+  "Seleccion":     "selection",
+  "Empaque":       "packaging",
+  "Distribución":  "distribution",
+  "Distribucion":  "distribution",
 };
 
 const reverseStageMap: Record<Stage, string> = {
@@ -116,22 +126,42 @@ const mapApiMovimientoToLotMovement = (apiLoteId: number, mov: MovimientoLote) =
 
 // Convertir lote de API a formato frontend
 const apiLoteToLot = (apiLote: ApiLote): Lot => {
-  const currentStage = apiLote.etapa_actual_nombre 
-    ? stageMap[apiLote.etapa_actual_nombre] || "reception"
+  // etapa_actual puede llegar como objeto (detail) o como null/undefined (list)
+  // etapa_actual_nombre llega en list; en detail viene dentro del objeto
+  const etapaNombre =
+    (typeof apiLote.etapa_actual === 'object' && apiLote.etapa_actual !== null)
+      ? (apiLote.etapa_actual as any).nombre
+      : apiLote.etapa_actual_nombre;
+
+  const currentStage = etapaNombre
+    ? stageMap[etapaNombre] || "reception"
     : "reception";
-  
+
   const mappedMovements = (apiLote.movimientos || []).map((mov) =>
     mapApiMovimientoToLotMovement(apiLote.id, mov),
   );
-  
+
   // Mapeo completo de estados del backend al frontend
   const statusMap: Record<string, LotStatus> = {
-    'pendiente': 'active',
-    'en_espera': 'on_hold',
+    'pendiente':     'waiting',      // pendiente = esperando inicio
+    'en_espera':     'on_hold',
     'en_produccion': 'in_production',
-    'finalizado': 'completed',
-    'rechazado': 'rejected',
+    'finalizado':    'completed',
+    'rechazado':     'rejected',
   };
+
+  // variedad puede llegar como objeto (detail) o como número (list)
+  // variedad_nombre siempre viene en list
+  const varietyName =
+    (typeof apiLote.variedad === 'object' && apiLote.variedad !== null)
+      ? (apiLote.variedad as any).nombre
+      : apiLote.variedad_nombre || '';
+
+  // proveedor puede llegar como objeto (detail) o como número (list)
+  const supplierName =
+    (typeof apiLote.proveedor === 'object' && apiLote.proveedor !== null)
+      ? (apiLote.proveedor as any).nombre
+      : apiLote.proveedor_nombre || '';
   
   return {
     id: apiLote.id.toString(),
@@ -139,9 +169,9 @@ const apiLoteToLot = (apiLote: ApiLote): Lot => {
     code: apiLote.codigo,
     qrCode: apiLote.codigo_qr,
     origin: apiLote.origen,
-    variety: typeof apiLote.variedad === 'object' ? apiLote.variedad.nombre : 'Virginia',
-    supplier: apiLote.proveedor_nombre || '',
-    proveedor: apiLote.proveedor_nombre || '',
+    variety: varietyName,
+    supplier: supplierName,
+    proveedor: supplierName,
     entryDate: apiLote.fecha_ingreso,
     fechaIngreso: apiLote.fecha_ingreso,
     initialWeight: typeof apiLote.peso_inicial_kg === 'string' ? parseFloat(apiLote.peso_inicial_kg) : apiLote.peso_inicial_kg,
@@ -167,8 +197,13 @@ export function LotProvider({ children }: { children: ReactNode }) {
   const [filters, setFilters] = useState<LotFilters>({});
   const [observations, setObservations] = useState<Observation[]>([]);
   const [systemEvents, setSystemEvents] = useState<SystemEvent[]>([]);
+  const [alertas, setAlertas] = useState<Alerta[]>([]);
+  const [inspecciones, setInspecciones] = useState<InspeccionCalidad[]>([]);
+  const [movimientos, setMovimientos] = useState<MovimientoLote[]>([]);
   const [stats, setStats] = useState<Estadisticas | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { showError, showWarning } = useError();
 
   // Cargar lotes desde el API
   const refreshLots = useCallback(async () => {
@@ -184,6 +219,11 @@ export function LotProvider({ children }: { children: ReactNode }) {
       setStats(apiStats);
     } catch (error) {
       console.error("Error loading lots:", error);
+      showError(
+        "Error al cargar lotes",
+        "No se pudieron obtener los lotes del servidor.",
+        error instanceof Error ? error.message : String(error),
+      );
       setLots([]);
       setStats(null);
     } finally {
@@ -192,8 +232,14 @@ export function LotProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    refreshLots();
-  }, [refreshLots]);
+    if (!authLoading && isAuthenticated) {
+      refreshLots();
+    } else if (!authLoading && !isAuthenticated) {
+      setLots([]);
+      setStats(null);
+      setIsLoading(false);
+    }
+  }, [refreshLots, isAuthenticated, authLoading]);
 
   // Map API InspeccionCalidad to QualityCheck
   const apiInspeccionToQualityCheck = (insp: InspeccionCalidad, lot?: Lot): QualityCheck => {
@@ -227,24 +273,34 @@ export function LotProvider({ children }: { children: ReactNode }) {
   // Refresh quality checks
   const refreshQualityChecks = useCallback(async () => {
     try {
-      const response = await api.getInspeccionesCalidad();
-      if (response.results && Array.isArray(response.results)) {
-        const mapped = response.results.map((insp: InspeccionCalidad) => {
-          const lot = lots.find(l => parseInt(l.id) === insp.lote);
-          return apiInspeccionToQualityCheck(insp, lot);
-        });
-        setQualityChecks(mapped);
-      }
+      // Use getAllPaginated to fetch ALL inspections, not just first page
+      const allInspecciones = await api.getAllPaginated<InspeccionCalidad>('/inspecciones-calidad/');
+      setInspecciones(allInspecciones);
+      const mapped = allInspecciones.map((insp: InspeccionCalidad) => {
+        const lot = lots.find(l => parseInt(l.id) === insp.lote);
+        return apiInspeccionToQualityCheck(insp, lot);
+      });
+      setQualityChecks(mapped);
     } catch (error) {
       console.error("Error loading quality checks:", error);
+      showError(
+        "Error al cargar inspecciones",
+        "No se pudieron obtener las inspecciones de calidad.",
+        error instanceof Error ? error.message : String(error),
+      );
       setQualityChecks([]);
+      setInspecciones([]);
     }
   }, [lots]);
 
   // Cargar inspecciones de calidad
   useEffect(() => {
-    refreshQualityChecks();
-  }, [refreshQualityChecks]);
+    if (!authLoading && isAuthenticated) {
+      refreshQualityChecks();
+    } else if (!authLoading && !isAuthenticated) {
+      setQualityChecks([]);
+    }
+  }, [refreshQualityChecks, isAuthenticated, authLoading]);
 
   // Create quality check
   const createQualityCheck = useCallback(async (data: Partial<InspeccionCalidad>) => {
@@ -276,60 +332,112 @@ export function LotProvider({ children }: { children: ReactNode }) {
 
   // Cargar movimientos
   useEffect(() => {
+    if (!isAuthenticated || authLoading) {
+      if (!authLoading) setMovements([]);
+      return;
+    }
     const fetchMovements = async () => {
       try {
-        const response = await api.getMovimientos();
-        if (response.results && Array.isArray(response.results)) {
-          const mapped = response.results.map((mov: MovimientoLote) => ({
-            id: mov.id.toString(),
-            lotId: mov.lote.toString(),
-            lotCode: `LT-${mov.lote}`,
-            fromStage: mov.etapa_origen_nombre ? stageMap[mov.etapa_origen_nombre] : undefined,
-            toStage: mov.etapa_destino_nombre ? stageMap[mov.etapa_destino_nombre] : 'reception',
-            date: mov.fecha_hora,
-            observation: mov.observaciones || '',
-            quantityReceived: mov.cantidad_procesada_kg,
-            userId: mov.usuario?.toString(),
-            userName: mov.usuario_nombre || 'Sistema',
-          }));
-          setMovements(mapped);
-        }
+        // Fetch ALL movements with pagination
+        const allMovements = await api.getAllPaginated<MovimientoLote>('/movimientos/');
+        setMovimientos(allMovements);
+        const mapped = allMovements.map((mov: MovimientoLote) => ({
+          id: mov.id.toString(),
+          lotId: mov.lote.toString(),
+          lotCode: `LT-${mov.lote}`,
+          fromStage: mov.etapa_origen_nombre ? stageMap[mov.etapa_origen_nombre] : undefined,
+          toStage: mov.etapa_destino_nombre ? stageMap[mov.etapa_destino_nombre] : 'reception',
+          date: mov.fecha_hora,
+          observation: mov.observaciones || '',
+          quantityReceived: mov.cantidad_procesada_kg,
+          userId: mov.usuario?.toString(),
+          userName: mov.usuario_nombre || 'Sistema',
+          durationMinutes: mov.tiempo_trabajo_minutos || 0,
+          tipo_movimiento: mov.tipo_movimiento,
+        }));
+        setMovements(mapped);
       } catch (error) {
         console.error("Error loading movements:", error);
+        showError(
+          "Error al cargar movimientos",
+          "No se pudieron obtener los movimientos del sistema.",
+          error instanceof Error ? error.message : String(error),
+        );
         setMovements([]);
+        setMovimientos([]);
       }
     };
     
     fetchMovements();
-  }, []);
+  }, [isAuthenticated, authLoading]);
+
+  // Cargar alertas activas del backend
+  useEffect(() => {
+    if (!isAuthenticated || authLoading) {
+      if (!authLoading) setAlertas([]);
+      return;
+    }
+    const fetchAlertas = async () => {
+      try {
+        const activas = await api.getAlertasActivas();
+        setAlertas(activas);
+      } catch (error) {
+        console.error("Error loading alertas:", error);
+        setAlertas([]);
+      }
+    };
+    fetchAlertas();
+  }, [isAuthenticated, authLoading]);
 
   // Cargar eventos del sistema
   useEffect(() => {
+    if (!isAuthenticated || authLoading) {
+      if (!authLoading) setSystemEvents([]);
+      return;
+    }
     const fetchEvents = async () => {
       try {
         const response = await api.getEventosRecientes();
         if (Array.isArray(response)) {
+          // Map backend TipoEvento to frontend SystemEvent.type
+          const eventTypeMap: Record<string, SystemEvent["type"]> = {
+            creacion_lote: "lot",
+            movimiento_etapa: "stage",
+            inspeccion_calidad: "quality",
+            cambio_estado_lote: "lot",
+            creacion_usuario: "user",
+            modificacion_usuario: "user",
+            login: "user",
+            logout: "user",
+            alerta_generada: "alert",
+          };
+
           const mapped = response.map((event) => ({
             id: event.id.toString(),
             lotId: event.lote?.toString(),
-            lotCode: event.lote_codigo || '',
-            action: event.tipo.replace(/_/g, ' '),
+            lotCode: event.lote_codigo || "",
+            action: event.tipo,
             detail: event.descripcion,
             date: event.fecha_hora,
             userId: event.usuario?.toString(),
-            userName: event.usuario_nombre || 'Sistema',
-            type: 'lot' as const,
+            userName: event.usuario_nombre || "Sistema",
+            type: eventTypeMap[event.tipo] ?? "lot",
           }));
           setSystemEvents(mapped);
         }
       } catch (error) {
         console.error("Error loading events:", error);
+        showError(
+          "Error al cargar eventos",
+          "No se pudieron obtener los eventos del sistema.",
+          error instanceof Error ? error.message : String(error),
+        );
         setSystemEvents([]);
       }
     };
     
     fetchEvents();
-  }, []);
+  }, [isAuthenticated, authLoading]);
 
   const filteredLots = useMemo(
     () =>
@@ -681,8 +789,11 @@ export function LotProvider({ children }: { children: ReactNode }) {
         addObservation,
         getObservationsByLotId,
         systemEvents,
+        alertas,
         stats,
         refreshLots,
+        inspecciones,
+        movimientos,
       }}
     >
       {children}

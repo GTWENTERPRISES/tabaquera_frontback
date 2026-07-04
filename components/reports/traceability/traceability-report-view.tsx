@@ -1,8 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { Download } from "lucide-react";
+import { FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTraceabilityReport } from "./use-traceability-report";
@@ -38,6 +39,8 @@ export function TraceabilityReportView() {
     isSystemEvent,
   } = useTraceabilityReport();
 
+  const [exporting, setExporting] = useState(false);
+
   // Set lot from URL parameter if present
   useEffect(() => {
     const lotId = searchParams.get("lot");
@@ -62,12 +65,12 @@ export function TraceabilityReportView() {
         <div className="flex gap-2">
           <Button
             variant="outline"
-            onClick={handleExport}
+            onClick={() => { setExporting(true); handleExport().finally(() => setExporting(false)); }}
             className="gap-2"
-            disabled={!selectedLotData}
+            disabled={!selectedLotData || exporting}
           >
-            <Download className="h-4 w-4" />
-            Exportar CSV
+            <FileText className="h-4 w-4" />
+            {exporting ? "Generando..." : "Exportar PDF"}
           </Button>
         </div>
       </div>

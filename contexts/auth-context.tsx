@@ -10,6 +10,7 @@ import {
 import type { User, UserRole, AuthState, LegacyUserRole } from "@/lib/types";
 import { api } from "@/services/api";
 import type { Usuario as ApiUser } from "@/services/api";
+import { useError } from "@/contexts/error-context";
 
 interface AuthContextType extends AuthState {
   login: (email: string, password: string) => Promise<boolean>;
@@ -155,6 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isLoading: true,
   });
   const [users, setUsers] = useState<User[]>([]);
+  const { showWarning, showError } = useError();
 
   // Cargar usuarios desde el API
   useEffect(() => {
@@ -164,8 +166,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const mappedUsers = response.results.map(apiUserToUser);
         setUsers(mappedUsers);
       } catch (error) {
-        console.error("Error loading users:", error);
-      }
+          console.error("Error loading users:", error);
+          showError(
+            "Error al cargar usuarios",
+            "No se pudieron obtener los usuarios del servidor.",
+            error instanceof Error ? error.message : String(error),
+          );
+        }
     };
     
     if (authState.isAuthenticated) {
@@ -188,6 +195,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           });
         } catch (error) {
           console.error("Session expired:", error);
+          showWarning(
+            "Sesión expirada",
+            "Tu sesión anterior no es válida. Por favor iniciá sesión nuevamente.",
+            error instanceof Error ? error.message : String(error),
+          );
           safeLocalStorage.removeItem("auth_token");
           setAuthState({ user: null, isAuthenticated: false, isLoading: false });
         }

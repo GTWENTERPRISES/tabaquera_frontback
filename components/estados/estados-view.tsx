@@ -1,61 +1,90 @@
 "use client";
 
+/**
+ * EstadosView — Herramienta de consulta individual de lotes.
+ *
+ * Responde la pregunta: ¿Qué está pasando con ESTE lote?
+ *
+ * Características:
+ * - Barra de búsqueda prominente (código, QR, proveedor, origen, variedad)
+ * - Filtros por etapa, estado y responsable
+ * - Tabla de resultados con información compacta pero útil
+ * - Modal detallado con 4 pestañas: Información, Timeline, Historial, QR
+ * - NO hay Kanban, columnas ni estadísticas globales (eso es de Procesos)
+ */
+
 import { motion } from "framer-motion";
-import { Search } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { useEstadosView } from "./estados-view/use-estados-view";
-import { LotList } from "./estados-view/lot-list";
-import { SideCards } from "./estados-view/side-cards";
+import { EstadosHeader } from "./estados-header";
+import { EstadosSearchBar } from "./estados-search-bar";
+import { EstadosFilters } from "./estados-filters";
+import { EstadosTable } from "./estados-table";
+import { EstadosLotDetailModal } from "./estados-lot-detail-modal";
+import { useEstadosView } from "./use-estados-view";
 
 export function EstadosView() {
   const {
     lots,
+    filteredLots,
+    isLoading,
     search,
     setSearch,
+    filters,
+    setFilters,
+    responsables,
     selectedLot,
-    setSelectedLot,
-    filteredLots,
+    modalOpen,
+    openLotDetail,
+    closeModal,
   } = useEstadosView();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-5">
+      {/* Header */}
+      <EstadosHeader />
+
+      {/* Search */}
       <motion.div
-        initial={{ opacity: 0, y: -20 }}
+        initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
+        transition={{ delay: 0.05 }}
       >
-        <div>
-          <h1 className="text-2xl font-bold text-foreground lg:text-3xl">
-            Estados de Lotes
-          </h1>
-          <p className="text-muted-foreground">
-            Consulta la ubicación y estado actual de cualquier lote
-          </p>
-        </div>
+        <EstadosSearchBar value={search} onChange={setSearch} />
       </motion.div>
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder="Buscar por código de lote, origen o variedad..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-10"
+      {/* Filters */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.1 }}
+      >
+        <EstadosFilters
+          filters={filters}
+          onChange={setFilters}
+          responsables={responsables}
+          total={lots.length}
+          filtered={filteredLots.length}
         />
-      </div>
+      </motion.div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <LotList
-            lots={filteredLots}
-            selectedLot={selectedLot}
-            setSelectedLot={setSelectedLot}
-          />
-        </div>
-        <div>
-          <SideCards lots={lots} />
-        </div>
-      </div>
+      {/* Table */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.15 }}
+      >
+        <EstadosTable
+          lots={filteredLots}
+          isLoading={isLoading}
+          onSelectLot={openLotDetail}
+        />
+      </motion.div>
+
+      {/* Lot detail modal */}
+      <EstadosLotDetailModal
+        lot={selectedLot}
+        open={modalOpen}
+        onClose={closeModal}
+      />
     </div>
   );
 }

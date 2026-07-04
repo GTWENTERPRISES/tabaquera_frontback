@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import type { Dispatch, SetStateAction } from "react";
 import type { Lot, LotFilters, Stage, LotStatus, User, LotStageHistory, LotMovement, LegacyLotState, Movement, SystemEvent, Observation } from "@/lib/types";
 import { STAGE_LABELS } from "@/lib/constants";
 import { useAuth } from "@/contexts/auth-context";
@@ -9,15 +10,15 @@ import { EventService } from "@/services/event.service";
 
 export function useLotActions(
   lots: Lot[],
-  setLots: React.Dispatch<React.SetStateAction<Lot[]>>,
-  setMovements: React.Dispatch<React.SetStateAction<Movement[]>>,
-  setObservations: React.Dispatch<React.SetStateAction<Observation[]>>,
-  setSystemEvents: React.Dispatch<React.SetStateAction<SystemEvent[]>>,
+  setLots: Dispatch<SetStateAction<Lot[]>>,
+  setMovements: Dispatch<SetStateAction<Movement[]>>,
+  setObservations: Dispatch<SetStateAction<Observation[]>>,
+  setSystemEvents: Dispatch<SetStateAction<SystemEvent[]>>,
 ) {
   const { user } = useAuth();
 
   const getLotById = useCallback((id: string): Lot | undefined => {
-    return lots.find((lot) => lot.id === id);
+    return lots.find((lot: Lot) => lot.id === id);
   }, [lots]);
 
   const addLot = useCallback((
@@ -37,7 +38,7 @@ export function useLotActions(
   ) => {
     if (!user) return;
     const currentYear = new Date().getFullYear();
-    const lotCount = lots.filter((l) => l.codigo?.startsWith(`LT-${currentYear}-`)).length + 1;
+    const lotCount = lots.filter((l: Lot) => l.codigo?.startsWith(`LT-${currentYear}-`)).length + 1;
     const codigo = `LT-${currentYear}-${String(lotCount).padStart(3, "0")}`;
     const now = new Date().toISOString();
     const lotId = `lot-${Date.now()}`;
@@ -80,7 +81,7 @@ export function useLotActions(
       lastUpdatedAt: now,
     };
 
-    setLots((prev) => [...prev, newLot]);
+    setLots((prev: Lot[]) => [...prev, newLot]);
 
     // Add movement record for lot creation
     const newMovement = MovementService.createMovement({
@@ -90,7 +91,7 @@ export function useLotActions(
       userId: user.id,
       userName: user.nombre || user.name,
     });
-    setMovements((prev) => [...prev, newMovement]);
+    setMovements((prev: Movement[]) => [...prev, newMovement]);
 
     // System event
     const sysEvent = EventService.createSystemEvent({
@@ -101,12 +102,12 @@ export function useLotActions(
       user,
       type: "lot",
     });
-    setSystemEvents((prev) => [sysEvent, ...prev]);
+    setSystemEvents((prev: SystemEvent[]) => [sysEvent, ...prev]);
   }, [lots, user, setLots, setMovements, setSystemEvents]);
 
   const updateLotStatus = useCallback((lotId: string, status: LotStatus) => {
-    setLots((prev) =>
-      prev.map((lot) =>
+    setLots((prev: Lot[]) =>
+      prev.map((lot: Lot) =>
         lot.id === lotId
           ? { ...lot, estado: status as unknown as LegacyLotState }
           : lot,
@@ -121,7 +122,7 @@ export function useLotActions(
     quantityReceived?: number,
     delayReason?: string,
   ) => {
-    const lot = lots.find((l) => l.id === lotId);
+    const lot = lots.find((l: Lot) => l.id === lotId);
     if (!lot || !user) return;
 
     const previousStage = lot.currentStage;
@@ -130,7 +131,7 @@ export function useLotActions(
 
     // Find the current movement to complete it
     const currentMovement = lot.movements.find(
-      (m) => m.toStage === previousStage && !m.completedAt,
+      (m: LotMovement) => m.toStage === previousStage && !m.completedAt,
     );
     let durationMinutes: number | undefined = undefined;
     if (currentMovement?.startedAt) {
@@ -141,11 +142,11 @@ export function useLotActions(
     }
 
     // Update the lot and its stage history and movements
-    setLots((prev) =>
-      prev.map((l) => {
+    setLots((prev: Lot[]) =>
+      prev.map((l: Lot) => {
         if (l.id === lotId) {
           // Close the previous stage in history
-          const updatedHistory = l.stageHistory.map((h) => {
+          const updatedHistory = l.stageHistory.map((h: LotStageHistory) => {
             if (h.stage === previousStage && !h.endTime) {
               return { ...h, endTime: now, durationMinutes };
             }
@@ -153,7 +154,7 @@ export function useLotActions(
           });
 
           // Close the previous movement
-          const updatedMovements = l.movements.map((m) => {
+          const updatedMovements = l.movements.map((m: LotMovement) => {
             if (m.toStage === previousStage && !m.completedAt) {
               return { ...m, completedAt: now, durationMinutes, isDelayed: !!delayReason, delayReason: delayReason as any };
             }
@@ -196,7 +197,7 @@ export function useLotActions(
             user,
             type: "stage",
           });
-          setSystemEvents((prev) => [newSystemEvent, ...prev]);
+          setSystemEvents((prev: SystemEvent[]) => [newSystemEvent, ...prev]);
 
           // Add observation if provided
           if (observation) {
@@ -210,7 +211,7 @@ export function useLotActions(
               userId: user.id,
               userName: user.nombre || user.name,
             };
-            setObservations((prev) => [...prev, newObservation]);
+            setObservations((prev: Observation[]) => [...prev, newObservation]);
           }
 
           return {
@@ -237,11 +238,11 @@ export function useLotActions(
       toStage: newStage,
       details: { observation },
     });
-    setMovements((prev) => [...prev, newMovement]);
+    setMovements((prev: Movement[]) => [...prev, newMovement]);
   }, [lots, user, setLots, setMovements, setObservations, setSystemEvents]);
 
   const completeLot = useCallback((lotId: string, observation?: string) => {
-    const lot = lots.find((l) => l.id === lotId);
+    const lot = lots.find((l: Lot) => l.id === lotId);
     if (!lot || !user) return;
 
     const now = new Date().toISOString();
@@ -250,7 +251,7 @@ export function useLotActions(
 
     // Complete the last stage movement and history
     const currentMovement = lot.movements.find(
-      (m) => m.toStage === previousStage && !m.completedAt,
+      (m: LotMovement) => m.toStage === previousStage && !m.completedAt,
     );
     let durationMinutes: number | undefined = undefined;
     if (currentMovement?.startedAt) {
@@ -260,11 +261,11 @@ export function useLotActions(
       );
     }
 
-    setLots((prev) =>
-      prev.map((l) => {
+    setLots((prev: Lot[]) =>
+      prev.map((l: Lot) => {
         if (l.id === lotId) {
           // Close the last stage in history
-          const updatedHistory = l.stageHistory.map((h) => {
+          const updatedHistory = l.stageHistory.map((h: LotStageHistory) => {
             if (h.stage === previousStage && !h.endTime) {
               return { ...h, endTime: now, durationMinutes };
             }
@@ -272,7 +273,7 @@ export function useLotActions(
           });
 
           // Close the last movement
-          const updatedMovements = l.movements.map((m) => {
+          const updatedMovements = l.movements.map((m: LotMovement) => {
             if (m.toStage === previousStage && !m.completedAt) {
               return { ...m, completedAt: now, durationMinutes };
             }
@@ -288,7 +289,7 @@ export function useLotActions(
             user,
             type: "lot",
           });
-          setSystemEvents((prev) => [newSystemEvent, ...prev]);
+          setSystemEvents((prev: SystemEvent[]) => [newSystemEvent, ...prev]);
 
           // Add observation if provided
           if (observation) {
@@ -302,7 +303,7 @@ export function useLotActions(
               userId: user.id,
               userName: user.nombre || user.name,
             };
-            setObservations((prev) => [...prev, newObservation]);
+            setObservations((prev: Observation[]) => [...prev, newObservation]);
           }
 
           return {
@@ -329,14 +330,14 @@ export function useLotActions(
       toStage: "completado" as Stage,
       details: { observation },
     });
-    setMovements((prev) => [...prev, newMovement]);
+    setMovements((prev: Movement[]) => [...prev, newMovement]);
   }, [lots, user, setLots, setMovements, setObservations, setSystemEvents]);
 
   const reasignarLote = useCallback((lotId: string, responsable: { nombre: string }) => {
     if (!user) return;
     const now = new Date().toISOString();
-    setLots((prev) =>
-      prev.map((l) => {
+    setLots((prev: Lot[]) =>
+      prev.map((l: Lot) => {
         if (l.id === lotId) {
           const newSystemEvent = EventService.createSystemEvent({
             lotId,
@@ -346,7 +347,7 @@ export function useLotActions(
             user,
             type: "stage",
           });
-          setSystemEvents((prev) => [newSystemEvent, ...prev]);
+          setSystemEvents((prev: SystemEvent[]) => [newSystemEvent, ...prev]);
 
           return {
             ...l,
@@ -360,11 +361,11 @@ export function useLotActions(
   }, [user, setLots, setSystemEvents]);
 
   const addObservation = useCallback((obs: Omit<Observation, "id" | "date">) => {
-    const lot = lots.find((l) => l.id === obs.lotId);
+    const lot = lots.find((l: Lot) => l.id === obs.lotId);
     if (!lot) return;
     const now = new Date().toISOString();
     const newObs: Observation = { ...obs, id: `obs-${Date.now()}`, date: now };
-    setObservations((prev) => [newObs, ...prev]);
+    setObservations((prev: Observation[]) => [newObs, ...prev]);
 
     // Add as movement
     const newMovement = MovementService.createMovement({
@@ -374,7 +375,7 @@ export function useLotActions(
       userId: obs.userId,
       userName: obs.userName,
     });
-    setMovements((prev) => [...prev, newMovement]);
+    setMovements((prev: Movement[]) => [...prev, newMovement]);
 
     // System event
     const sysEvent = EventService.createSystemEvent({
@@ -385,7 +386,7 @@ export function useLotActions(
       user: { id: obs.userId, nombre: obs.userName },
       type: "observation",
     });
-    setSystemEvents((prev) => [sysEvent, ...prev]);
+    setSystemEvents((prev: SystemEvent[]) => [sysEvent, ...prev]);
   }, [lots, setObservations, setMovements, setSystemEvents]);
 
   return {

@@ -141,8 +141,10 @@ class Proveedor(models.Model):
         INACTIVO = 'inactivo', 'Inactivo'
     
     nombre = models.CharField(max_length=200, unique=True)
+    contacto = models.CharField(max_length=100, blank=True)
     rfc = models.CharField(max_length=13, unique=True, blank=True, null=True)
     direccion = models.TextField(blank=True)
+    origen = models.CharField(max_length=100, blank=True)
     telefono = models.CharField(max_length=15, blank=True)
     email = models.EmailField(blank=True)
     estado = models.CharField(max_length=10, choices=Estado.choices, default=Estado.ACTIVO)
@@ -263,6 +265,9 @@ class Lote(models.Model):
     
     # Observaciones
     observaciones_iniciales = models.TextField(blank=True)
+
+    # Tiempo total acumulado
+    total_tiempo_minutos = models.IntegerField(null=True, blank=True, validators=[MinValueValidator(0)])
     
     # Metadata
     creado_por = models.ForeignKey(
@@ -348,6 +353,11 @@ class MovimientoLote(models.Model):
     # Datos del movimiento
     tipo_movimiento = models.CharField(max_length=20, choices=TipoMovimiento.choices)
     fecha_hora = models.DateTimeField(default=timezone.now)
+    # Tiempos detallados según database-design.md
+    fecha_inicio = models.DateTimeField(null=True, blank=True)
+    fecha_fin = models.DateTimeField(null=True, blank=True)
+    fecha_pausa = models.DateTimeField(null=True, blank=True)
+    fecha_reanudacion = models.DateTimeField(null=True, blank=True)
     cantidad_procesada_kg = models.DecimalField(
         max_digits=10, 
         decimal_places=2,
@@ -359,7 +369,11 @@ class MovimientoLote(models.Model):
     # Tiempos
     tiempo_trabajo_minutos = models.IntegerField(null=True, blank=True, validators=[MinValueValidator(0)])
     tiempo_pausa_minutos = models.IntegerField(null=True, blank=True, validators=[MinValueValidator(0)])
+    duracion_total_minutos = models.IntegerField(null=True, blank=True, validators=[MinValueValidator(0)])
     
+    # Retraso
+    es_retrasado = models.BooleanField(default=False)
+
     # Incidencias y observaciones
     incidencias = models.CharField(
         max_length=20, 
@@ -502,7 +516,7 @@ class InspeccionCalidad(models.Model):
 class EvidenciaCalidad(models.Model):
     """
     Modelo para evidencias fotográficas o documentales de inspecciones.
-    Normalización: Tabla separada para permitir múltiples evidencias por inspección.
+    Soporta tanto archivos subidos (FileField) como URLs externas.
     """
     
     class TipoEvidencia(models.TextChoices):
@@ -510,29 +524,49 @@ class EvidenciaCalidad(models.Model):
         DOCUMENTO = 'documento', 'Documento'
     
     inspeccion = models.ForeignKey(
-        InspeccionCalidad, 
-        on_delete=models.CASCADE, 
+        InspeccionCalidad,
+        on_delete=models.CASCADE,
         related_name='evidencias'
     )
     tipo = models.CharField(max_length=10, choices=TipoEvidencia.choices, default=TipoEvidencia.FOTO)
-    archivo = models.FileField(upload_to='evidencias/%Y/%m/%d/')
+    # Archivo subido o URL externa (uno de los dos)
+    archivo = models.FileField(upload_to='evidencias/%Y/%m/%d/', blank=True, null=True)
+    url_externa = models.URLField(max_length=500, blank=True)
+    nombre_archivo = models.CharField(max_length=255, blank=True)
+    tamano_bytes = models.BigIntegerField(null=True, blank=True)
+    mime_type = models.CharField(max_length=100, blank=True)
     descripcion = models.CharField(max_length=200, blank=True)
+    uploaded_by = models.ForeignKey(
+        'Usuario',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='evidencias_subidas'
+    )
     fecha_subida = models.DateTimeField(auto_now_add=True)
-    
+
     class Meta:
         db_table = 'evidencias_calidad'
         ordering = ['-fecha_subida']
         verbose_name = 'Evidencia de Calidad'
         verbose_name_plural = 'Evidencias de Calidad'
-    
+
     def __str__(self):
         return f"Evidencia {self.tipo} - {self.inspeccion}"
+
+    @property
+    def url(self):
+        """Retorna la URL del archivo, sea subido o externo."""
+        if self.url_externa:
+            return self.url_externa
+        if self.archivo:
+            return self.archivo.url
+        return ''
 
 
 class Observacion(models.Model):
     """
     Modelo para observaciones generales sobre lotes.
-    Normalización: Separado para permitir múltiples observaciones independientes.
     """
     
     class TipoObservacion(models.TextChoices):
@@ -542,6 +576,13 @@ class Observacion(models.Model):
         NOTA = 'nota', 'Nota'
     
     lote = models.ForeignKey(Lote, on_delete=models.CASCADE, related_name='observaciones')
+    etapa = models.ForeignKey(
+        EtapaProductiva,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='observaciones'
+    )
     usuario = models.ForeignKey(Usuario, on_delete=models.SET_NULL, null=True)
     tipo = models.CharField(max_length=15, choices=TipoObservacion.choices, default=TipoObservacion.GENERAL)
     contenido = models.TextField()
@@ -679,3 +720,79 @@ class EventoSistema(models.Model):
     
     def __str__(self):
         return f"{self.get_tipo_display()} - {self.fecha_hora.strftime('%Y-%m-%d %H:%M')}"
+
+
+class Notificacion(models.Model):
+    """
+    Modelo para notificaciones del sistema por usuario.
+    Tabla notificaciones del database-design.md.
+    """
+
+    class TipoNotificacion(models.TextChoices):
+        INFO = 'info', 'Información'
+        WARNING = 'warning', 'Advertencia'
+        CRITICAL = 'critical', 'Crítica'
+
+    class CategoriaNotificacion(models.TextChoices):
+        LOT = 'lot', 'Lote'
+        QUALITY = 'quality', 'Calidad'
+        USER = 'user', 'Usuario'
+        ALERT = 'alert', 'Alerta'
+        PRODUCTION = 'production', 'Producción'
+        ADMIN = 'admin', 'Administración'
+
+    usuario = models.ForeignKey(
+        Usuario,
+        on_delete=models.CASCADE,
+        related_name='notificaciones'
+    )
+    lote = models.ForeignKey(
+        Lote,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='notificaciones'
+    )
+    lote_codigo = models.CharField(max_length=50, blank=True)
+    tipo = models.CharField(max_length=10, choices=TipoNotificacion.choices, default=TipoNotificacion.INFO)
+    categoria = models.CharField(max_length=15, choices=CategoriaNotificacion.choices, default=CategoriaNotificacion.ALERT)
+    titulo = models.CharField(max_length=200)
+    mensaje = models.TextField()
+    url_accion = models.CharField(max_length=500, blank=True)
+    leida = models.BooleanField(default=False)
+    fecha_creacion = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = 'notificaciones'
+        ordering = ['-fecha_creacion']
+        verbose_name = 'Notificación'
+        verbose_name_plural = 'Notificaciones'
+        indexes = [
+            models.Index(fields=['usuario', '-fecha_creacion']),
+            models.Index(fields=['leida']),
+            models.Index(fields=['categoria']),
+        ]
+
+    def __str__(self):
+        return f"{self.titulo} → {self.usuario.nombre_completo}"
+
+
+class ConfiguracionSistema(models.Model):
+    """
+    Almacena la configuración general del sistema (clave-valor).
+    Tabla configuracion_sistema del database-design.md.
+    """
+
+    clave = models.CharField(max_length=100, unique=True)
+    valor = models.TextField()
+    descripcion = models.TextField(blank=True)
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'configuracion_sistema'
+        ordering = ['clave']
+        verbose_name = 'Configuración del Sistema'
+        verbose_name_plural = 'Configuraciones del Sistema'
+
+    def __str__(self):
+        return f"{self.clave} = {self.valor[:50]}"

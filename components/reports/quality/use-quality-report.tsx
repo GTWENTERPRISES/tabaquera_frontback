@@ -5,10 +5,11 @@ import { useLots } from "@/contexts/lot-context";
 import { REJECTION_REASONS } from "@/lib/constants";
 import type { DateRange } from "react-day-picker";
 
-export function useQualityReport(dateRange?: DateRange) {
+export function useQualityReport(initialDateRange?: DateRange) {
   const { lots, qualityChecks } = useLots();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [inspectorFilter, setInspectorFilter] = useState<string>("all");
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(initialDateRange);
 
   // Filtrar controles de calidad por fecha
   const filteredByDate = useMemo(() => {
@@ -149,6 +150,8 @@ export function useQualityReport(dateRange?: DateRange) {
     setStatusFilter,
     inspectorFilter,
     setInspectorFilter,
+    dateRange,
+    setDateRange,
     filteredChecks,
     totalChecks,
     approvedChecks,

@@ -4,128 +4,130 @@ import {
   Text,
   View,
   StyleSheet,
-  PDFViewer,
-  Image,
-  Line,
 } from "@react-pdf/renderer";
 import type { Lot, QualityCheck, LotStageHistory } from "./types";
 import { STAGE_LABELS, APP_CONFIG } from "./constants";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
-// Create styles
-const styles = StyleSheet.create({
-  page: {
-    padding: 30,
-    fontFamily: "Helvetica",
-  },
+// ─── Paleta de colores unificada ───────────────────────────────────────────
+const BRAND = "#15803d";     // green-700 — primary del sistema
+const BRAND_LIGHT = "#dcfce7"; // green-100
+const BRAND_MID = "#166534";   // green-800 — headers
+const TEXT = "#111827";
+const TEXT_MUTED = "#6b7280";
+const BORDER = "#e5e7eb";
+const ROW_ALT = "#f9fafb";
+
+// ─── Estilos compartidos ───────────────────────────────────────────────────
+const shared = StyleSheet.create({
+  page: { padding: 36, fontFamily: "Helvetica", backgroundColor: "#ffffff" },
+
+  // Header
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 20,
-    borderBottom: 2,
-    borderBottomColor: "#2563eb",
-    paddingBottom: 15,
+    alignItems: "flex-start",
+    marginBottom: 24,
+    paddingBottom: 14,
+    borderBottomWidth: 3,
+    borderBottomColor: BRAND,
   },
-  title: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#1f2937",
-  },
-  subtitle: {
-    fontSize: 10,
-    color: "#6b7280",
-    marginTop: 3,
-  },
-  section: {
-    marginBottom: 15,
-  },
+  headerLeft: { flex: 1 },
+  headerBrand: { fontSize: 9, color: BRAND, fontFamily: "Helvetica-Bold", letterSpacing: 1, textTransform: "uppercase", marginBottom: 3 },
+  headerTitle: { fontSize: 20, fontFamily: "Helvetica-Bold", color: TEXT, marginBottom: 2 },
+  headerSub: { fontSize: 9, color: TEXT_MUTED },
+  headerRight: { alignItems: "flex-end" },
+  headerDate: { fontSize: 9, color: TEXT_MUTED },
+  headerPeriod: { fontSize: 8, color: TEXT_MUTED, marginTop: 2 },
+
+  // Section
+  section: { marginBottom: 18 },
   sectionTitle: {
-    fontSize: 14,
-    fontWeight: "bold",
-    color: "#1f2937",
-    marginBottom: 8,
-    borderBottom: 1,
-    borderBottomColor: "#e5e7eb",
-    paddingBottom: 4,
+    fontSize: 11, fontFamily: "Helvetica-Bold", color: BRAND_MID,
+    marginBottom: 8, paddingBottom: 4,
+    borderBottomWidth: 1, borderBottomColor: BRAND_LIGHT,
   },
-  table: {
-    display: "flex",
-    width: "auto",
-    borderStyle: "solid",
-    borderWidth: 1,
-    borderRightWidth: 0,
-    borderBottomWidth: 0,
-    borderColor: "#e5e7eb",
+
+  // KPI row
+  kpiRow: { flexDirection: "row", gap: 10, marginBottom: 18 },
+  kpiBox: {
+    flex: 1, backgroundColor: BRAND_LIGHT, borderRadius: 6,
+    padding: 10, alignItems: "center",
   },
-  tableRow: {
-    flexDirection: "row",
+  kpiValue: { fontSize: 18, fontFamily: "Helvetica-Bold", color: BRAND_MID },
+  kpiLabel: { fontSize: 8, color: TEXT_MUTED, marginTop: 2, textAlign: "center" },
+
+  // Info rows
+  infoRow: { flexDirection: "row", marginBottom: 5 },
+  infoLabel: { width: "32%", fontSize: 9, fontFamily: "Helvetica-Bold", color: TEXT },
+  infoValue: { width: "68%", fontSize: 9, color: TEXT_MUTED },
+
+  // Table
+  table: { width: "100%", borderWidth: 1, borderColor: BORDER, borderRadius: 4, overflow: "hidden" },
+  tableRow: { flexDirection: "row" },
+  tableRowAlt: { flexDirection: "row", backgroundColor: ROW_ALT },
+  tableHead: {
+    backgroundColor: BRAND_MID, padding: "6 8",
+    fontSize: 8, fontFamily: "Helvetica-Bold", color: "#ffffff",
+    borderRightWidth: 1, borderRightColor: BRAND,
   },
-  tableColHeader: {
-    width: "20%",
-    borderStyle: "solid",
-    borderWidth: 1,
-    borderLeftWidth: 0,
-    borderTopWidth: 0,
-    borderColor: "#e5e7eb",
-    backgroundColor: "#f3f4f6",
-    padding: 6,
-    fontSize: 10,
-    fontWeight: "bold",
-    color: "#374151",
+  tableCell: {
+    padding: "5 8", fontSize: 8, color: TEXT_MUTED,
+    borderRightWidth: 1, borderRightColor: BORDER,
+    borderBottomWidth: 1, borderBottomColor: BORDER,
   },
-  tableCol: {
-    width: "20%",
-    borderStyle: "solid",
-    borderWidth: 1,
-    borderLeftWidth: 0,
-    borderTopWidth: 0,
-    borderColor: "#e5e7eb",
-    padding: 6,
-    fontSize: 9,
-    color: "#4b5563",
-  },
-  infoRow: {
-    flexDirection: "row",
-    marginBottom: 6,
-  },
-  infoLabel: {
-    width: "30%",
-    fontSize: 10,
-    fontWeight: "bold",
-    color: "#374151",
-  },
-  infoValue: {
-    width: "70%",
-    fontSize: 10,
-    color: "#4b5563",
-  },
-  timelineItem: {
-    marginLeft: 10,
-    marginBottom: 12,
-    paddingLeft: 10,
-    borderLeft: 2,
-    borderLeftColor: "#3b82f6",
-  },
-  statusBadge: {
-    fontSize: 8,
-    padding: 3,
-    borderRadius: 3,
-    fontWeight: "bold",
-  },
+
+  // Footer
   footer: {
-    position: "absolute",
-    bottom: 30,
-    left: 30,
-    right: 30,
-    fontSize: 8,
-    color: "#9ca3af",
-    textAlign: "center",
+    position: "absolute", bottom: 24, left: 36, right: 36,
+    flexDirection: "row", justifyContent: "space-between",
+    borderTopWidth: 1, borderTopColor: BORDER, paddingTop: 6,
   },
+  footerText: { fontSize: 7, color: TEXT_MUTED },
 });
 
-// Create Production Report PDF
+// ─── Header y Footer compartidos ──────────────────────────────────────────
+function PDFHeader({ title, subtitle, dateRange }: {
+  title: string;
+  subtitle?: string;
+  dateRange?: { from?: Date; to?: Date };
+}) {
+  const reportDate = format(new Date(), "dd/MM/yyyy HH:mm", { locale: es });
+  const period = dateRange?.from && dateRange?.to
+    ? `Período: ${format(dateRange.from, "dd/MM/yyyy", { locale: es })} — ${format(dateRange.to, "dd/MM/yyyy", { locale: es })}`
+    : "Período: Todos los registros";
+
+  return (
+    <View style={shared.header}>
+      <View style={shared.headerLeft}>
+        <Text style={shared.headerBrand}>{APP_CONFIG.company}</Text>
+        <Text style={shared.headerTitle}>{title}</Text>
+        {subtitle && <Text style={shared.headerSub}>{subtitle}</Text>}
+      </View>
+      <View style={shared.headerRight}>
+        <Text style={shared.headerDate}>Generado: {reportDate}</Text>
+        <Text style={shared.headerPeriod}>{period}</Text>
+      </View>
+    </View>
+  );
+}
+
+function PDFFooter({ page, total }: { page?: number; total?: number }) {
+  return (
+    <View style={shared.footer} fixed>
+      <Text style={shared.footerText}>{APP_CONFIG.name} — {APP_CONFIG.description}</Text>
+      {page !== undefined && total !== undefined && (
+        <Text style={shared.footerText}>Página {page} de {total}</Text>
+      )}
+      <Text style={[shared.footerText, { color: BRAND }]} render={({ pageNumber, totalPages }) =>
+        `Página ${pageNumber} de ${totalPages}`
+      } />
+    </View>
+  );
+}
+
+// ─── Reporte de Producción ─────────────────────────────────────────────────
 export function ProductionReportPDF({
   lots,
   dateRange,
@@ -133,113 +135,79 @@ export function ProductionReportPDF({
   lots: Lot[];
   dateRange?: { from?: Date; to?: Date };
 }) {
-  const totalWeight = lots.reduce((acc, lot) => acc + lot.currentWeight, 0);
-  const reportDate = new Date();
+  const totalWeight = lots.reduce((acc, lot) => acc + (lot.currentWeight || 0), 0);
+  const completedLots = lots.filter((l) => l.status === "completed" || l.status === "finalizado").length;
+  const activeLots = lots.filter((l) => l.status === "active" || l.status === "en_produccion").length;
 
   return (
-    <Document>
-      <Page size="A4" style={styles.page}>
-        {/* Header */}
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.title}>{APP_CONFIG.company}</Text>
-            <Text style={styles.subtitle}>Reporte de Producción</Text>
+    <Document title="Reporte de Producción" author={APP_CONFIG.company}>
+      <Page size="A4" style={shared.page}>
+        <PDFHeader
+          title="Reporte de Producción"
+          subtitle="Consolidado por lote, etapa y volumen procesado"
+          dateRange={dateRange}
+        />
+
+        {/* KPIs */}
+        <View style={shared.kpiRow}>
+          <View style={shared.kpiBox}>
+            <Text style={shared.kpiValue}>{lots.length}</Text>
+            <Text style={shared.kpiLabel}>Total de Lotes</Text>
           </View>
-          <View>
-            <Text style={[styles.subtitle, { textAlign: "right" }]}>
-              Fecha: {format(reportDate, "dd/MM/yyyy HH:mm", { locale: es })}
-            </Text>
+          <View style={shared.kpiBox}>
+            <Text style={shared.kpiValue}>{totalWeight.toLocaleString()} kg</Text>
+            <Text style={shared.kpiLabel}>Peso Total Procesado</Text>
+          </View>
+          <View style={shared.kpiBox}>
+            <Text style={shared.kpiValue}>{completedLots}</Text>
+            <Text style={shared.kpiLabel}>Lotes Completados</Text>
+          </View>
+          <View style={shared.kpiBox}>
+            <Text style={shared.kpiValue}>{activeLots}</Text>
+            <Text style={shared.kpiLabel}>Lotes Activos</Text>
           </View>
         </View>
 
-        {/* Summary */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Resumen</Text>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Total Lotes:</Text>
-            <Text style={styles.infoValue}>{lots.length}</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Peso Total Procesado:</Text>
-            <Text style={styles.infoValue}>
-              {totalWeight.toLocaleString()} kg
-            </Text>
-          </View>
-          {dateRange && (
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Periodo:</Text>
-              <Text style={styles.infoValue}>
-                {dateRange.from
-                  ? format(dateRange.from, "dd/MM/yyyy", { locale: es })
-                  : "Desde siempre"}{" "}
-                -{" "}
-                {dateRange.to
-                  ? format(dateRange.to, "dd/MM/yyyy", { locale: es })
-                  : "Hasta hoy"}
-              </Text>
+        {/* Tabla de lotes */}
+        <View style={shared.section}>
+          <Text style={shared.sectionTitle}>Detalle de Lotes</Text>
+          <View style={shared.table}>
+            <View style={shared.tableRow}>
+              {["Código", "Proveedor", "Etapa Actual", "Peso (kg)", "Estado"].map((h, i) => (
+                <View key={i} style={[shared.tableHead, { flex: [1, 2, 2, 1, 1][i] }]}>
+                  <Text>{h}</Text>
+                </View>
+              ))}
             </View>
-          )}
-        </View>
-
-        {/* Lots Table */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Detalle de Lotes</Text>
-          <View style={styles.table}>
-            <View style={styles.tableRow}>
-              <View style={[styles.tableColHeader, { width: "15%" }]}>
-                <Text>Lote</Text>
-              </View>
-              <View style={[styles.tableColHeader, { width: "25%" }]}>
-                <Text>Proveedor</Text>
-              </View>
-              <View style={[styles.tableColHeader, { width: "20%" }]}>
-                <Text>Etapa</Text>
-              </View>
-              <View style={[styles.tableColHeader, { width: "15%" }]}>
-                <Text>Peso (kg)</Text>
-              </View>
-              <View style={[styles.tableColHeader, { width: "25%" }]}>
-                <Text>Estado</Text>
-              </View>
-            </View>
-            {lots.map((lot) => (
-              <View key={lot.id} style={styles.tableRow}>
-                <View style={[styles.tableCol, { width: "15%" }]}>
-                  <Text>{lot.code || lot.codigo}</Text>
+            {lots.map((lot, idx) => (
+              <View key={lot.id} style={idx % 2 === 0 ? shared.tableRow : shared.tableRowAlt}>
+                <View style={[shared.tableCell, { flex: 1 }]}>
+                  <Text>{lot.code || lot.codigo || "-"}</Text>
                 </View>
-                <View style={[styles.tableCol, { width: "25%" }]}>
-                  <Text>{lot.supplier || lot.proveedor}</Text>
+                <View style={[shared.tableCell, { flex: 2 }]}>
+                  <Text>{lot.supplier || lot.proveedor || "-"}</Text>
                 </View>
-                <View style={[styles.tableCol, { width: "20%" }]}>
-                  <Text>
-                    {STAGE_LABELS[
-                      lot.currentStage as keyof typeof STAGE_LABELS
-                    ] || lot.currentStage}
-                  </Text>
+                <View style={[shared.tableCell, { flex: 2 }]}>
+                  <Text>{STAGE_LABELS[lot.currentStage as keyof typeof STAGE_LABELS] || lot.currentStage || "-"}</Text>
                 </View>
-                <View style={[styles.tableCol, { width: "15%" }]}>
-                  <Text>{lot.currentWeight}</Text>
+                <View style={[shared.tableCell, { flex: 1 }]}>
+                  <Text>{(lot.currentWeight || 0).toLocaleString()}</Text>
                 </View>
-                <View style={[styles.tableCol, { width: "25%" }]}>
-                  <Text style={{ textTransform: "capitalize" }}>
-                    {lot.status}
-                  </Text>
+                <View style={[shared.tableCell, { flex: 1, borderRightWidth: 0 }]}>
+                  <Text style={{ textTransform: "capitalize" }}>{lot.status || "-"}</Text>
                 </View>
               </View>
             ))}
           </View>
         </View>
 
-        {/* Footer */}
-        <View style={styles.footer}>
-          <Text>{APP_CONFIG.name} - Sistema de Trazabilidad Industrial</Text>
-        </View>
+        <PDFFooter />
       </Page>
     </Document>
   );
 }
 
-// Create Quality Report PDF
+// ─── Reporte de Calidad ────────────────────────────────────────────────────
 export function QualityReportPDF({
   checks,
   dateRange,
@@ -247,264 +215,171 @@ export function QualityReportPDF({
   checks: QualityCheck[];
   dateRange?: { from?: Date; to?: Date };
 }) {
-  const approved = checks.filter(
-    (c) => c.status === "passed" || c.status === "passed_with_notes",
-  ).length;
+  const approved = checks.filter((c) => c.status === "passed").length;
+  const approvedWithNotes = checks.filter((c) => c.status === "passed_with_notes").length;
   const rejected = checks.filter((c) => c.status === "failed").length;
-  const pending = checks.filter(
-    (c) => c.status === "pending" || c.status === "in_progress",
-  ).length;
-  const approvalRate =
-    checks.length > 0 ? Math.round((approved / checks.length) * 100) : 0;
-  const reportDate = new Date();
+  const pending = checks.filter((c) => c.status === "pending" || c.status === "in_progress").length;
+  const approvalRate = checks.length > 0 ? Math.round(((approved + approvedWithNotes) / checks.length) * 100) : 0;
+
+  const statusLabel = (s: string) => {
+    switch (s) {
+      case "passed": return "Aprobado";
+      case "failed": return "Rechazado";
+      case "passed_with_notes": return "Con observ.";
+      default: return "Pendiente";
+    }
+  };
 
   return (
-    <Document>
-      <Page size="A4" style={styles.page}>
-        {/* Header */}
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.title}>{APP_CONFIG.company}</Text>
-            <Text style={styles.subtitle}>Reporte de Calidad</Text>
+    <Document title="Reporte de Calidad" author={APP_CONFIG.company}>
+      <Page size="A4" style={shared.page}>
+        <PDFHeader
+          title="Reporte de Calidad"
+          subtitle="Inspecciones, aprobaciones y motivos de rechazo"
+          dateRange={dateRange}
+        />
+
+        {/* KPIs */}
+        <View style={shared.kpiRow}>
+          <View style={shared.kpiBox}>
+            <Text style={shared.kpiValue}>{checks.length}</Text>
+            <Text style={shared.kpiLabel}>Total Inspecciones</Text>
           </View>
-          <View>
-            <Text style={[styles.subtitle, { textAlign: "right" }]}>
-              Fecha: {format(reportDate, "dd/MM/yyyy HH:mm", { locale: es })}
-            </Text>
+          <View style={shared.kpiBox}>
+            <Text style={[shared.kpiValue, { color: "#166534" }]}>{approved + approvedWithNotes}</Text>
+            <Text style={shared.kpiLabel}>Aprobadas</Text>
+          </View>
+          <View style={shared.kpiBox}>
+            <Text style={[shared.kpiValue, { color: "#991b1b" }]}>{rejected}</Text>
+            <Text style={shared.kpiLabel}>Rechazadas</Text>
+          </View>
+          <View style={shared.kpiBox}>
+            <Text style={shared.kpiValue}>{approvalRate}%</Text>
+            <Text style={shared.kpiLabel}>Tasa de Aprobación</Text>
           </View>
         </View>
 
-        {/* Summary */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Resumen</Text>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Total Inspecciones:</Text>
-            <Text style={styles.infoValue}>{checks.length}</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Aprobadas:</Text>
-            <Text style={styles.infoValue}>
-              {approved} ({approvalRate}%)
-            </Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Rechazadas:</Text>
-            <Text style={styles.infoValue}>{rejected}</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Pendientes:</Text>
-            <Text style={styles.infoValue}>{pending}</Text>
-          </View>
-          {dateRange && (
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Periodo:</Text>
-              <Text style={styles.infoValue}>
-                {dateRange.from
-                  ? format(dateRange.from, "dd/MM/yyyy", { locale: es })
-                  : "Desde siempre"}{" "}
-                -{" "}
-                {dateRange.to
-                  ? format(dateRange.to, "dd/MM/yyyy", { locale: es })
-                  : "Hasta hoy"}
-              </Text>
+        {/* Tabla */}
+        <View style={shared.section}>
+          <Text style={shared.sectionTitle}>Detalle de Inspecciones</Text>
+          <View style={shared.table}>
+            <View style={shared.tableRow}>
+              {["Lote", "Etapa", "Grado", "Inspector", "Resultado", "Fecha"].map((h, i) => (
+                <View key={i} style={[shared.tableHead, { flex: [1, 2, 0.7, 1.5, 1.5, 1.8][i] }]}>
+                  <Text>{h}</Text>
+                </View>
+              ))}
             </View>
-          )}
-        </View>
-
-        {/* Checks Table */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Detalle de Inspecciones</Text>
-          <View style={styles.table}>
-            <View style={styles.tableRow}>
-              <View style={[styles.tableColHeader, { width: "15%" }]}>
-                <Text>Lote</Text>
-              </View>
-              <View style={[styles.tableColHeader, { width: "20%" }]}>
-                <Text>Etapa</Text>
-              </View>
-              <View style={[styles.tableColHeader, { width: "10%" }]}>
-                <Text>Grado</Text>
-              </View>
-              <View style={[styles.tableColHeader, { width: "15%" }]}>
-                <Text>Inspector</Text>
-              </View>
-              <View style={[styles.tableColHeader, { width: "20%" }]}>
-                <Text>Resultado</Text>
-              </View>
-              <View style={[styles.tableColHeader, { width: "20%" }]}>
-                <Text>Fecha</Text>
-              </View>
-            </View>
-            {checks.map((check) => (
-              <View key={check.id} style={styles.tableRow}>
-                <View style={[styles.tableCol, { width: "15%" }]}>
-                  <Text>{check.lotCode}</Text>
+            {checks.map((check, idx) => (
+              <View key={check.id} style={idx % 2 === 0 ? shared.tableRow : shared.tableRowAlt}>
+                <View style={[shared.tableCell, { flex: 1 }]}>
+                  <Text>{check.lotCode || "-"}</Text>
                 </View>
-                <View style={[styles.tableCol, { width: "20%" }]}>
-                  <Text>
-                    {STAGE_LABELS[check.stage as keyof typeof STAGE_LABELS] ||
-                      check.stage}
-                  </Text>
+                <View style={[shared.tableCell, { flex: 2 }]}>
+                  <Text>{STAGE_LABELS[check.stage as keyof typeof STAGE_LABELS] || check.stage || "-"}</Text>
                 </View>
-                <View style={[styles.tableCol, { width: "10%" }]}>
-                  <Text>{check.grade}</Text>
+                <View style={[shared.tableCell, { flex: 0.7 }]}>
+                  <Text>{check.grade || "-"}</Text>
                 </View>
-                <View style={[styles.tableCol, { width: "15%" }]}>
-                  <Text>{check.inspector}</Text>
+                <View style={[shared.tableCell, { flex: 1.5 }]}>
+                  <Text>{check.inspector || "-"}</Text>
                 </View>
-                <View style={[styles.tableCol, { width: "20%" }]}>
-                  <Text style={{ textTransform: "capitalize" }}>
-                    {check.status === "passed"
-                      ? "Aprobado"
-                      : check.status === "failed"
-                        ? "Rechazado"
-                        : check.status === "passed_with_notes"
-                          ? "Aprobado con obs."
-                          : "Pendiente"}
-                  </Text>
+                <View style={[shared.tableCell, { flex: 1.5 }]}>
+                  <Text>{statusLabel(check.status)}</Text>
                 </View>
-                <View style={[styles.tableCol, { width: "20%" }]}>
-                  <Text>
-                    {check.date
-                      ? format(new Date(check.date), "dd/MM/yyyy HH:mm", {
-                          locale: es,
-                        })
-                      : "-"}
-                  </Text>
+                <View style={[shared.tableCell, { flex: 1.8, borderRightWidth: 0 }]}>
+                  <Text>{check.date ? format(new Date(check.date), "dd/MM/yyyy HH:mm", { locale: es }) : "-"}</Text>
                 </View>
               </View>
             ))}
           </View>
         </View>
 
-        {/* Footer */}
-        <View style={styles.footer}>
-          <Text>{APP_CONFIG.name} - Sistema de Trazabilidad Industrial</Text>
-        </View>
+        <PDFFooter />
       </Page>
     </Document>
   );
 }
 
-// Create Traceability Report PDF
+// ─── Reporte de Trazabilidad ───────────────────────────────────────────────
 export function TraceabilityReportPDF({
   lot,
 }: {
-  lot: Lot & { stageHistory: LotStageHistory[] };
+  lot: Lot & { stageHistory?: LotStageHistory[] };
 }) {
-  const reportDate = new Date();
+  const history = lot.stageHistory || [];
 
   return (
-    <Document>
-      <Page size="A4" style={styles.page}>
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.title}>{APP_CONFIG.company}</Text>
-            <Text style={styles.subtitle}>Reporte de Trazabilidad</Text>
-          </View>
-          <View>
-            <Text style={[styles.subtitle, { textAlign: "right" }]}>
-              Fecha: {format(reportDate, "dd/MM/yyyy HH:mm", { locale: es })}
-            </Text>
-          </View>
-        </View>
+    <Document title={`Trazabilidad — ${lot.code || lot.codigo}`} author={APP_CONFIG.company}>
+      <Page size="A4" style={shared.page}>
+        <PDFHeader
+          title="Reporte de Trazabilidad"
+          subtitle={`Lote: ${lot.code || lot.codigo}`}
+        />
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Información del Lote</Text>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Código:</Text>
-            <Text style={styles.infoValue}>{lot.code || lot.codigo}</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Proveedor:</Text>
-            <Text style={styles.infoValue}>
-              {lot.supplier || lot.proveedor}
-            </Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Peso:</Text>
-            <Text style={styles.infoValue}>{lot.currentWeight} kg</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Variedad:</Text>
-            <Text style={styles.infoValue}>{lot.variety}</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Fecha Ingreso:</Text>
-            <Text style={styles.infoValue}>
-              {format(
-                new Date(lot.entryDate || lot.fechaIngreso || new Date()),
-                "dd/MM/yyyy HH:mm",
-                { locale: es },
-              )}
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Historial de Etapas</Text>
-          {lot.stageHistory.map((stage, index) => (
-            <View key={stage.id} style={styles.timelineItem}>
-              <View style={[styles.infoRow, { marginBottom: 4 }]}>
-                <Text style={styles.infoLabel}>
-                  <Text style={{ fontWeight: "bold", color: "#2563eb" }}>
-                    {STAGE_LABELS[stage.stage as keyof typeof STAGE_LABELS] ||
-                      stage.stage}
-                  </Text>
-                </Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Responsable:</Text>
-                <Text style={styles.infoValue}>
-                  {stage.responsibleUserName}
-                </Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Inicio:</Text>
-                <Text style={styles.infoValue}>
-                  {format(new Date(stage.startTime), "dd/MM/yyyy HH:mm", {
-                    locale: es,
-                  })}
-                </Text>
-              </View>
-              {stage.endTime && (
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Fin:</Text>
-                  <Text style={styles.infoValue}>
-                    {format(new Date(stage.endTime), "dd/MM/yyyy HH:mm", {
-                      locale: es,
-                    })}
-                  </Text>
-                </View>
-              )}
-              {stage.durationMinutes && (
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Duración:</Text>
-                  <Text style={styles.infoValue}>
-                    {Math.floor(stage.durationMinutes / 60)}h{" "}
-                    {stage.durationMinutes % 60}m
-                  </Text>
-                </View>
-              )}
-              {stage.observations && (
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Observaciones:</Text>
-                  <Text style={styles.infoValue}>{stage.observations}</Text>
-                </View>
-              )}
+        {/* Info del lote */}
+        <View style={shared.section}>
+          <Text style={shared.sectionTitle}>Información del Lote</Text>
+          {[
+            ["Código", lot.code || lot.codigo || "-"],
+            ["Proveedor", lot.supplier || lot.proveedor || "-"],
+            ["Variedad", lot.variety || "-"],
+            ["Peso actual", `${lot.currentWeight || 0} kg`],
+            ["Etapa actual", STAGE_LABELS[lot.currentStage as keyof typeof STAGE_LABELS] || lot.currentStage || "-"],
+            ["Fecha ingreso", lot.entryDate || (lot as any).fechaIngreso
+              ? format(new Date(lot.entryDate || (lot as any).fechaIngreso), "dd/MM/yyyy HH:mm", { locale: es })
+              : "-"],
+          ].map(([label, value], i) => (
+            <View key={i} style={shared.infoRow}>
+              <Text style={shared.infoLabel}>{label}:</Text>
+              <Text style={shared.infoValue}>{value}</Text>
             </View>
           ))}
         </View>
 
-        <View style={styles.footer}>
-          <Text>{APP_CONFIG.name} - Sistema de Trazabilidad Industrial</Text>
+        {/* Historial de etapas */}
+        <View style={shared.section}>
+          <Text style={shared.sectionTitle}>Historial de Etapas ({history.length} registros)</Text>
+          <View style={shared.table}>
+            <View style={shared.tableRow}>
+              {["Etapa", "Responsable", "Inicio", "Fin", "Duración", "Observaciones"].map((h, i) => (
+                <View key={i} style={[shared.tableHead, { flex: [1.5, 1.5, 1.8, 1.8, 1, 2][i] }]}>
+                  <Text>{h}</Text>
+                </View>
+              ))}
+            </View>
+            {history.map((stage, idx) => (
+              <View key={stage.id ?? idx} style={idx % 2 === 0 ? shared.tableRow : shared.tableRowAlt}>
+                <View style={[shared.tableCell, { flex: 1.5 }]}>
+                  <Text>{STAGE_LABELS[stage.stage as keyof typeof STAGE_LABELS] || stage.stage}</Text>
+                </View>
+                <View style={[shared.tableCell, { flex: 1.5 }]}>
+                  <Text>{stage.responsibleUserName || (stage as any).operator || "-"}</Text>
+                </View>
+                <View style={[shared.tableCell, { flex: 1.8 }]}>
+                  <Text>{format(new Date(stage.startTime), "dd/MM/yy HH:mm", { locale: es })}</Text>
+                </View>
+                <View style={[shared.tableCell, { flex: 1.8 }]}>
+                  <Text>{stage.endTime ? format(new Date(stage.endTime), "dd/MM/yy HH:mm", { locale: es }) : "En curso"}</Text>
+                </View>
+                <View style={[shared.tableCell, { flex: 1 }]}>
+                  <Text>{stage.durationMinutes ? `${Math.floor(stage.durationMinutes / 60)}h ${stage.durationMinutes % 60}m` : "-"}</Text>
+                </View>
+                <View style={[shared.tableCell, { flex: 2, borderRightWidth: 0 }]}>
+                  <Text>{stage.observations || (stage as any).notes || "-"}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
         </View>
+
+        <PDFFooter />
       </Page>
     </Document>
   );
 }
 
-// Create Performance Report PDF
+// ─── Reporte de Rendimiento ────────────────────────────────────────────────
 export function PerformanceReportPDF({
   lots,
   dateRange,
@@ -512,90 +387,93 @@ export function PerformanceReportPDF({
   lots: Lot[];
   dateRange?: { from?: Date; to?: Date };
 }) {
-  // Calculate stage performance
-  const stageData: Record<string, { totalMinutes: number; count: number }> = {};
+  // Calcular estadísticas por etapa
+  const stageData: Record<string, { totalMinutes: number; count: number; minMinutes: number; maxMinutes: number }> = {};
 
   lots.forEach((lot) => {
-    lot.stageHistory.forEach((stage) => {
-      if (stage.endTime && stage.durationMinutes) {
+    (lot.stageHistory || []).forEach((stage) => {
+      if (stage.endTime && typeof stage.durationMinutes === "number") {
         if (!stageData[stage.stage]) {
-          stageData[stage.stage] = { totalMinutes: 0, count: 0 };
+          stageData[stage.stage] = { totalMinutes: 0, count: 0, minMinutes: Infinity, maxMinutes: 0 };
         }
         stageData[stage.stage].totalMinutes += stage.durationMinutes;
         stageData[stage.stage].count += 1;
+        stageData[stage.stage].minMinutes = Math.min(stageData[stage.stage].minMinutes, stage.durationMinutes);
+        stageData[stage.stage].maxMinutes = Math.max(stageData[stage.stage].maxMinutes, stage.durationMinutes);
       }
     });
   });
 
-  const reportDate = new Date();
+  const fmtTime = (minutes: number) => `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+  const bottleneckCount = Object.values(stageData).filter((d) => d.count > 0 && (d.totalMinutes / d.count) / 60 >= 4).length;
+
+  const totalAvgMinutes = Object.values(stageData).reduce((sum, d) =>
+    sum + (d.count > 0 ? d.totalMinutes / d.count : 0), 0
+  );
 
   return (
-    <Document>
-      <Page size="A4" style={styles.page}>
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.title}>{APP_CONFIG.company}</Text>
-            <Text style={styles.subtitle}>Reporte de Rendimiento</Text>
+    <Document title="Reporte de Rendimiento" author={APP_CONFIG.company}>
+      <Page size="A4" style={shared.page}>
+        <PDFHeader
+          title="Reporte de Rendimiento"
+          subtitle="Tiempo promedio por etapa y detección de cuellos de botella"
+          dateRange={dateRange}
+        />
+
+        {/* KPIs */}
+        <View style={shared.kpiRow}>
+          <View style={shared.kpiBox}>
+            <Text style={shared.kpiValue}>{lots.length}</Text>
+            <Text style={shared.kpiLabel}>Lotes Analizados</Text>
           </View>
-          <View>
-            <Text style={[styles.subtitle, { textAlign: "right" }]}>
-              Fecha: {format(reportDate, "dd/MM/yyyy HH:mm", { locale: es })}
-            </Text>
+          <View style={shared.kpiBox}>
+            <Text style={shared.kpiValue}>{fmtTime(Math.round(totalAvgMinutes))}</Text>
+            <Text style={shared.kpiLabel}>Tiempo Promedio Total</Text>
+          </View>
+          <View style={shared.kpiBox}>
+            <Text style={[shared.kpiValue, { color: bottleneckCount > 0 ? "#b45309" : BRAND }]}>{bottleneckCount}</Text>
+            <Text style={shared.kpiLabel}>Cuellos de Botella</Text>
+          </View>
+          <View style={shared.kpiBox}>
+            <Text style={shared.kpiValue}>{Object.keys(stageData).length}</Text>
+            <Text style={shared.kpiLabel}>Etapas con Datos</Text>
           </View>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Resumen</Text>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Total Lotes Analizados:</Text>
-            <Text style={styles.infoValue}>{lots.length}</Text>
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Rendimiento por Etapa</Text>
-          <View style={styles.table}>
-            <View style={styles.tableRow}>
-              <View style={[styles.tableColHeader, { width: "30%" }]}>
-                <Text>Etapa</Text>
-              </View>
-              <View style={[styles.tableColHeader, { width: "20%" }]}>
-                <Text>Lotes</Text>
-              </View>
-              <View style={[styles.tableColHeader, { width: "25%" }]}>
-                <Text>Tiempo Promedio</Text>
-              </View>
-              <View style={[styles.tableColHeader, { width: "25%" }]}>
-                <Text>Tiempo Total</Text>
-              </View>
+        {/* Tabla por etapa */}
+        <View style={shared.section}>
+          <Text style={shared.sectionTitle}>Rendimiento por Etapa</Text>
+          <View style={shared.table}>
+            <View style={shared.tableRow}>
+              {["Etapa", "Lotes", "Tpo. Promedio", "Tpo. Mínimo", "Tpo. Máximo", "Bottleneck"].map((h, i) => (
+                <View key={i} style={[shared.tableHead, { flex: [2, 0.8, 1.5, 1.5, 1.5, 1.2][i] }]}>
+                  <Text>{h}</Text>
+                </View>
+              ))}
             </View>
-            {Object.entries(stageData).map(([stage, data]) => {
-              const avgMinutes =
-                data.count > 0 ? Math.round(data.totalMinutes / data.count) : 0;
-              const avgHours = Math.floor(avgMinutes / 60);
-              const avgMins = avgMinutes % 60;
-              const totalHours = Math.floor(data.totalMinutes / 60);
-              const totalMins = data.totalMinutes % 60;
-
+            {Object.entries(stageData).map(([stage, data], idx) => {
+              const avg = data.count > 0 ? Math.round(data.totalMinutes / data.count) : 0;
+              const isBottleneck = avg / 60 >= 4;
               return (
-                <View key={stage} style={styles.tableRow}>
-                  <View style={[styles.tableCol, { width: "30%" }]}>
-                    <Text>
-                      {STAGE_LABELS[stage as keyof typeof STAGE_LABELS] ||
-                        stage}
-                    </Text>
+                <View key={stage} style={idx % 2 === 0 ? shared.tableRow : shared.tableRowAlt}>
+                  <View style={[shared.tableCell, { flex: 2 }]}>
+                    <Text>{STAGE_LABELS[stage as keyof typeof STAGE_LABELS] || stage}</Text>
                   </View>
-                  <View style={[styles.tableCol, { width: "20%" }]}>
+                  <View style={[shared.tableCell, { flex: 0.8 }]}>
                     <Text>{data.count}</Text>
                   </View>
-                  <View style={[styles.tableCol, { width: "25%" }]}>
-                    <Text>
-                      {avgHours}h {avgMins}m
-                    </Text>
+                  <View style={[shared.tableCell, { flex: 1.5 }]}>
+                    <Text>{fmtTime(avg)}</Text>
                   </View>
-                  <View style={[styles.tableCol, { width: "25%" }]}>
-                    <Text>
-                      {totalHours}h {totalMins}m
+                  <View style={[shared.tableCell, { flex: 1.5 }]}>
+                    <Text>{data.minMinutes === Infinity ? "-" : fmtTime(data.minMinutes)}</Text>
+                  </View>
+                  <View style={[shared.tableCell, { flex: 1.5 }]}>
+                    <Text>{fmtTime(data.maxMinutes)}</Text>
+                  </View>
+                  <View style={[shared.tableCell, { flex: 1.2, borderRightWidth: 0 }]}>
+                    <Text style={{ color: isBottleneck ? "#b45309" : BRAND, fontFamily: "Helvetica-Bold" }}>
+                      {isBottleneck ? "⚠ Sí" : "No"}
                     </Text>
                   </View>
                 </View>
@@ -604,9 +482,7 @@ export function PerformanceReportPDF({
           </View>
         </View>
 
-        <View style={styles.footer}>
-          <Text>{APP_CONFIG.name} - Sistema de Trazabilidad Industrial</Text>
-        </View>
+        <PDFFooter />
       </Page>
     </Document>
   );

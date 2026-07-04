@@ -1,10 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { pdf } from "@react-pdf/renderer";
 import { ProductionReportPDF } from "@/lib/pdf-exports";
-import type { DateRange } from "react-day-picker";
+import { toast } from "sonner";
 import BackButton from "@/components/BackButton";
 import { useProductionReport } from "./use-production-report";
 import { ProductionFilters } from "./production-filters";
@@ -13,16 +14,14 @@ import { ProductionCharts } from "./production-charts";
 import { ProductionTable } from "./production-table";
 import { ProductionTopSuppliers } from "./production-top-suppliers";
 
-interface ProductionReportViewProps {
-  dateRange?: DateRange;
-}
-
-export function ProductionReportView({ dateRange }: ProductionReportViewProps) {
+export function ProductionReportView() {
   const {
     stageFilter,
     setStageFilter,
     supplierFilter,
     setSupplierFilter,
+    dateRange,
+    setDateRange,
     filteredLots,
     totalWeight,
     totalLots,
@@ -32,16 +31,17 @@ export function ProductionReportView({ dateRange }: ProductionReportViewProps) {
     dailyProduction,
     suppliers,
     topSuppliers,
-  } = useProductionReport(dateRange);
+  } = useProductionReport();
+
+  const [exporting, setExporting] = useState(false);
 
   const handleExportPDF = async () => {
+    setExporting(true);
     try {
       const blob = await pdf(
         <ProductionReportPDF
           lots={filteredLots}
-          dateRange={
-            dateRange ? { from: dateRange.from, to: dateRange.to } : undefined
-          }
+          dateRange={dateRange ? { from: dateRange.from, to: dateRange.to } : undefined}
         />,
       ).toBlob();
       const url = URL.createObjectURL(blob);
@@ -50,8 +50,12 @@ export function ProductionReportView({ dateRange }: ProductionReportViewProps) {
       a.download = `reporte-produccion-${new Date().toISOString().split("T")[0]}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
+      toast.success("PDF exportado correctamente");
     } catch (error) {
       console.error("Error al exportar PDF:", error);
+      toast.error("Error al generar el PDF");
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -66,23 +70,22 @@ export function ProductionReportView({ dateRange }: ProductionReportViewProps) {
           <p className="text-muted-foreground">
             Consolidado por lote, etapa y volumen procesado
             {dateRange?.from && dateRange?.to && (
-              <span className="ml-2">
-                ({dateRange.from.toLocaleDateString()} -{" "}
-                {dateRange.to.toLocaleDateString()})
+              <span className="ml-2 text-sm">
+                ({dateRange.from.toLocaleDateString("es-ES")} —{" "}
+                {dateRange.to.toLocaleDateString("es-ES")})
               </span>
             )}
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button onClick={handleExportPDF} className="gap-2">
-            <Download className="h-4 w-4" />
-            Exportar PDF
-          </Button>
-        </div>
+        <Button onClick={handleExportPDF} disabled={exporting} className="gap-2">
+          <Download className="h-4 w-4" />
+          {exporting ? "Generando..." : "Exportar PDF"}
+        </Button>
       </div>
 
       <ProductionFilters
         dateRange={dateRange}
+        onDateChange={setDateRange}
         stageFilter={stageFilter}
         onStageFilterChange={setStageFilter}
         supplierFilter={supplierFilter}

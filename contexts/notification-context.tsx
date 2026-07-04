@@ -12,6 +12,7 @@ import type { Notification, NotificationCategory, User } from "@/lib/types";
 import { useAuth } from "./auth-context";
 import { useNotificationActions } from "@/hooks/use-notification-actions";
 import { api, type Alerta } from "@/services/api";
+import { useError } from "@/contexts/error-context";
 
 interface NotificationContextType {
   notifications: Notification[];
@@ -76,7 +77,8 @@ const getBackendAlertId = (notificationId: string) => {
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const [allNotifications, setAllNotifications] = useState<Notification[]>([]);
-  const { user } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { showWarning } = useError();
 
   // Función para convertir Alerta del backend a Notification del frontend
   const convertAlertaToNotification = (alerta: Alerta): Notification => {
@@ -119,7 +121,10 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
   // Load notifications from backend when user is authenticated
   useEffect(() => {
-    if (!user) {
+    // Esperar a que auth termine de verificar el token
+    if (authLoading) return;
+
+    if (!user || !isAuthenticated) {
       setAllNotifications([]);
       return;
     }
@@ -141,17 +146,28 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         );
       } catch (error) {
         console.error("Error cargando notificaciones:", error);
-        const rawLocalNotifications = localStorage.getItem(getStorageKey(user.id));
-        setAllNotifications(rawLocalNotifications ? JSON.parse(rawLocalNotifications) : []);
+        const msg = error instanceof Error ? error.message : String(error);
+        // Token inválido o expirado — limpiar silenciosamente sin modal de error
+        if (msg.toLowerCase().includes('token') || msg.includes('401') || msg.includes('credenciales')) {
+          setAllNotifications([]);
+        } else {
+          showWarning(
+            "Notificaciones no disponibles",
+            "No se pudieron cargar las alertas del sistema.",
+            msg,
+          );
+          const rawLocalNotifications = localStorage.getItem(getStorageKey(user.id));
+          setAllNotifications(rawLocalNotifications ? JSON.parse(rawLocalNotifications) : []);
+        }
       }
     };
 
     loadNotifications();
-    
+
     // Recargar notificaciones cada 60 segundos
     const interval = setInterval(loadNotifications, 60000);
     return () => clearInterval(interval);
-  }, [user?.id]);
+  }, [user?.id, isAuthenticated, authLoading]);
 
   // Persist notifications changes to backend (for local notifications only)
   // Las alertas del backend se persisten automáticamente
