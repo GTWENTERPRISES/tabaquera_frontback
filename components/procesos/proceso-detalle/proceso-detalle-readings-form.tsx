@@ -17,6 +17,8 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { api } from "@/services/api";
+import { toast } from "sonner";
 
 const readingsSchema = z.object({
   temperature: z.coerce
@@ -32,7 +34,12 @@ const readingsSchema = z.object({
 
 type ReadingsFormValues = z.infer<typeof readingsSchema>;
 
-export function ProcesoDetalleReadingsForm() {
+interface ProcesoDetalleReadingsFormProps {
+  /** ID of the lot these readings belong to */
+  lotId?: string;
+}
+
+export function ProcesoDetalleReadingsForm({ lotId }: ProcesoDetalleReadingsFormProps) {
   const form = useForm<ReadingsFormValues>({
     resolver: zodResolver(readingsSchema),
     defaultValues: {
@@ -43,10 +50,33 @@ export function ProcesoDetalleReadingsForm() {
   });
 
   const onSubmit = async (data: ReadingsFormValues) => {
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 600));
-    console.log("Lecturas guardadas:", data);
-    form.reset();
+    if (!lotId) {
+      toast.error("No se identificó el lote para guardar las lecturas");
+      return;
+    }
+
+    try {
+      // Persist the reading as an observation on the lot
+      const contenido = [
+        `Temperatura: ${data.temperature}°C`,
+        `Humedad: ${data.humidity}%`,
+        data.notes ? `Notas: ${data.notes}` : null,
+      ]
+        .filter(Boolean)
+        .join(" | ");
+
+      await api.createObservacion({
+        lote: parseInt(lotId),
+        tipo: "nota",
+        contenido,
+      });
+
+      toast.success("Lectura guardada correctamente");
+      form.reset();
+    } catch (error) {
+      console.error("Error guardando lectura:", error);
+      toast.error("Error al guardar la lectura. Intente nuevamente.");
+    }
   };
 
   return (

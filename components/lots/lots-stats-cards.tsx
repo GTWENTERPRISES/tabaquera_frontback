@@ -32,59 +32,59 @@ export function LotsStatsCards({ lots, stats }: LotsStatsCardsProps) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.1 }}
-      className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+      className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4"
     >
       <Card className="border-0 shadow-sm">
-        <CardContent className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-              <Package className="h-5 w-5 text-primary" />
+        <CardContent className="p-3 sm:p-4">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-lg bg-primary/10 shrink-0">
+              <Package className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{totalLotes}</p>
-              <p className="text-sm text-muted-foreground">Total Lotes</p>
+              <p className="text-xl sm:text-2xl font-bold">{totalLotes}</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">Total Lotes</p>
             </div>
           </div>
         </CardContent>
       </Card>
       <Card className="border-0 shadow-sm">
-        <CardContent className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-500/10">
-              <Package className="h-5 w-5 text-blue-500" />
+        <CardContent className="p-3 sm:p-4">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-lg bg-blue-500/10 shrink-0">
+              <Package className="h-4 w-4 sm:h-5 sm:w-5 text-blue-500" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{lotesEnProceso}</p>
-              <p className="text-sm text-muted-foreground">En Proceso</p>
+              <p className="text-xl sm:text-2xl font-bold">{lotesEnProceso}</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">En Proceso</p>
             </div>
           </div>
         </CardContent>
       </Card>
       <Card className="border-0 shadow-sm">
-        <CardContent className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-500/10">
-              <Package className="h-5 w-5 text-green-500" />
+        <CardContent className="p-3 sm:p-4">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-lg bg-green-500/10 shrink-0">
+              <Package className="h-4 w-4 sm:h-5 sm:w-5 text-green-500" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{lotesCompletados}</p>
-              <p className="text-sm text-muted-foreground">Completados</p>
+              <p className="text-xl sm:text-2xl font-bold">{lotesCompletados}</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">Completados</p>
             </div>
           </div>
         </CardContent>
       </Card>
       <Card className="border-0 shadow-sm">
-        <CardContent className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500/10">
-              <Package className="h-5 w-5 text-amber-500" />
+        <CardContent className="p-3 sm:p-4">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-lg bg-amber-500/10 shrink-0">
+              <Package className="h-4 w-4 sm:h-5 sm:w-5 text-amber-500" />
             </div>
             <div>
-              <p className="text-2xl font-bold">
+              <p className="text-xl sm:text-2xl font-bold">
                 {pesoTotal.toLocaleString()}{" "}
                 kg
               </p>
-              <p className="text-sm text-muted-foreground">Peso Total</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">Peso Total</p>
             </div>
           </div>
         </CardContent>

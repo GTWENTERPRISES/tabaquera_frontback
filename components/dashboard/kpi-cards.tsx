@@ -85,23 +85,23 @@ export function KPICards() {
       variants={container}
       initial="hidden"
       animate="show"
-      className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-6"
+      className="grid gap-3 grid-cols-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-6"
     >
       {kpis.map((stat) => {
         const Icon = stat.icon;
         return (
           <motion.div key={stat.label} variants={item}>
             <Card className="overflow-hidden border-0 shadow-sm hover:shadow-md transition-shadow">
-              <CardContent className="p-4">
+              <CardContent className="p-3 sm:p-4">
                 <div className="flex items-center justify-between">
-                  <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${stat.bgColor}`}>
-                    <Icon className={`h-5 w-5 ${stat.color}`} />
+                  <div className={`flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-lg ${stat.bgColor}`}>
+                    <Icon className={`h-4 w-4 sm:h-5 sm:w-5 ${stat.color}`} />
                   </div>
                 </div>
-                <div className="mt-3">
-                  <p className="text-2xl font-bold text-foreground">{stat.value}</p>
-                  <p className="text-sm font-medium text-foreground">{stat.label}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{stat.description}</p>
+                <div className="mt-2 sm:mt-3">
+                  <p className="text-xl sm:text-2xl font-bold text-foreground">{stat.value}</p>
+                  <p className="text-xs sm:text-sm font-medium text-foreground leading-tight">{stat.label}</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1 leading-tight">{stat.description}</p>
                 </div>
               </CardContent>
             </Card>

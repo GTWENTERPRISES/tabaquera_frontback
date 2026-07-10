@@ -11,7 +11,7 @@ import React, {
 import type { Notification, NotificationCategory, User } from "@/lib/types";
 import { useAuth } from "./auth-context";
 import { useNotificationActions } from "@/hooks/use-notification-actions";
-import { api, type Alerta } from "@/services/api";
+import { api, type Alerta, type NotificacionData } from "@/services/api";
 import { useError } from "@/contexts/error-context";
 
 interface NotificationContextType {
@@ -80,6 +80,33 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const { showWarning } = useError();
 
+  // Función para convertir Notificacion del backend a Notification del frontend
+  const convertNotificacionToNotification = (notif: NotificacionData): Notification => {
+    const categoryMap: Record<string, NotificationCategory> = {
+      lot: 'lot',
+      quality: 'quality',
+      user: 'user',
+      alert: 'alert',
+      production: 'production',
+      admin: 'admin',
+    };
+
+    return {
+      id: `notif-back-${notif.id}`,
+      userId: user?.id || '',
+      type: notif.tipo,
+      title: notif.titulo,
+      message: notif.mensaje,
+      category: (categoryMap[notif.categoria] as NotificationCategory) || 'alert',
+      isRead: notif.leida,
+      createdAt: notif.fecha_creacion,
+      lotId: notif.lote?.toString(),
+      lotCode: notif.lote_codigo_display,
+      actionUrl: notif.url_accion || undefined,
+      meta: { backendNotifId: notif.id },
+    };
+  };
+
   // Función para convertir Alerta del backend a Notification del frontend
   const convertAlertaToNotification = (alerta: Alerta): Notification => {
     const categoryMap: Record<string, NotificationCategory> = {
@@ -131,15 +158,33 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
     const loadNotifications = async () => {
       try {
-        const alertas = await api.getAllAlertas();
-        const backendNotifications = alertas.map(convertAlertaToNotification);
+        // Cargar alertas del sistema y notificaciones propias del usuario en paralelo
+        const [alertas, notificaciones] = await Promise.all([
+          api.getAllAlertas(),
+          api.getAllNotificaciones().catch(() => [] as NotificacionData[]),
+        ]);
+
+        const alertNotifications = alertas.map(convertAlertaToNotification);
+        const backendNotifications = notificaciones.map(convertNotificacionToNotification);
+
         const rawLocalNotifications = localStorage.getItem(getStorageKey(user.id));
         const localNotifications: Notification[] = rawLocalNotifications
           ? JSON.parse(rawLocalNotifications)
           : [];
 
+        // Unir: notificaciones del backend (no duplicar las alertas que ya venían)
+        const combined = [...backendNotifications, ...alertNotifications, ...localNotifications];
+
+        // Deduplicar por id
+        const seen = new Set<string>();
+        const deduped = combined.filter(n => {
+          if (seen.has(n.id)) return false;
+          seen.add(n.id);
+          return true;
+        });
+
         setAllNotifications(
-          [...backendNotifications, ...localNotifications].sort(
+          deduped.sort(
             (a, b) =>
               new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
           ),
@@ -223,6 +268,16 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         console.error("Error marcando alerta como leída:", error);
       });
     }
+
+    // Si es notificación del backend (/notificaciones/)
+    if (notificationId.startsWith('notif-back-')) {
+      const notifId = parseInt(notificationId.replace('notif-back-', ''), 10);
+      if (!isNaN(notifId)) {
+        void api.marcarNotificacionLeida(notifId).catch((error) => {
+          console.error("Error marcando notificación como leída:", error);
+        });
+      }
+    }
   };
 
   const markAllAsRead = () => {
@@ -243,6 +298,11 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       void api.resolverAlerta(alertId).catch((error) => {
         console.error("Error marcando alertas como leídas:", error);
       });
+    });
+
+    // Marcar todas las notificaciones del endpoint /notificaciones/ como leídas
+    void api.marcarTodasNotificacionesLeidas().catch((error) => {
+      console.error("Error marcando todas las notificaciones como leídas:", error);
     });
   };
 

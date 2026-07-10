@@ -4,7 +4,8 @@ from .views import (
     AuthViewSet, UsuarioViewSet, ProveedorViewSet, VariedadTabacoViewSet,
     EtapaProductivaViewSet, LoteViewSet, MovimientoLoteViewSet,
     InspeccionCalidadViewSet, ObservacionViewSet, AlertaViewSet,
-    EventoSistemaViewSet, SessionViewSet
+    EventoSistemaViewSet, SessionViewSet, NotificacionViewSet,
+    ConfiguracionSistemaViewSet
 )
 
 router = DefaultRouter()
@@ -20,6 +21,8 @@ router.register(r'observaciones', ObservacionViewSet)
 router.register(r'alertas', AlertaViewSet)
 router.register(r'eventos-sistema', EventoSistemaViewSet)
 router.register(r'sesiones', SessionViewSet, basename='sesiones')
+router.register(r'notificaciones', NotificacionViewSet, basename='notificaciones')
+router.register(r'configuracion', ConfiguracionSistemaViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),

@@ -98,17 +98,29 @@ export function ConfiguracionSeguridad() {
       return;
     }
 
-    setIsChangingPassword(true);
-    // Simulate API call - you can replace with real API call here
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    setIsChangingPassword(false);
+    if (!user) {
+      toast.error('No se encontró el usuario autenticado');
+      return;
+    }
 
-    toast.success('Contraseña actualizada');
-    setPasswordForm({
-      currentPassword: '',
-      newPassword: '',
-      confirmPassword: '',
-    });
+    setIsChangingPassword(true);
+    try {
+      // Update password via the usuarios endpoint
+      await api.updateUsuario(user.id, {
+        password: passwordForm.newPassword,
+      } as any);
+      toast.success('Contraseña actualizada exitosamente');
+      setPasswordForm({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: '',
+      });
+    } catch (error) {
+      console.error('Error changing password:', error);
+      toast.error('Error al actualizar la contraseña. Verifique su contraseña actual.');
+    } finally {
+      setIsChangingPassword(false);
+    }
   };
 
   const handleTerminateSession = async (sessionId: string) => {

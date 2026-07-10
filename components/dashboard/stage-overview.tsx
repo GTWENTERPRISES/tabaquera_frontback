@@ -55,7 +55,7 @@ export function StageOverview() {
         <CardContent>
           <div className="relative">
             {/* Stages */}
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 overflow-x-auto">
               {stagesData.map((item, index) => {
                 const isBottleneck = item.stage === bottleneckByCount.stage;
                 return (
@@ -91,8 +91,8 @@ export function StageOverview() {
                         </p>
                       )}
                       {isBottleneck && item.count > 0 && (
-                        <Badge variant="destructive" className="text-[10px]">
-                          ⚠️ Cuello Botella
+                        <Badge variant="destructive" className="text-[10px] px-1 py-0 leading-tight max-w-full truncate">
+                          ⚠️ Cuello
                         </Badge>
                       )}
                     </div>

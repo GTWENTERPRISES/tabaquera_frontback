@@ -292,9 +292,9 @@ export function ProduccionView() {
         }}
       >
         {selectedLot && (
-          <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="w-[95vw] sm:w-auto sm:max-w-4xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
             <DialogHeader>
-              <DialogTitle className="text-xl flex items-center gap-3">
+              <DialogTitle className="text-base sm:text-xl flex flex-wrap items-center gap-2 sm:gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
                   <Package className="h-5 w-5 text-primary" />
                 </div>
@@ -314,7 +314,7 @@ export function ProduccionView() {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2 space-y-6">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 xs:grid-cols-2 gap-3 sm:gap-4">
                   <div className="p-3 bg-muted/30 rounded-lg">
                     <p className="text-xs text-muted-foreground">Proveedor</p>
                     <p className="font-medium">{selectedLot.proveedor || selectedLot.supplier}</p>
@@ -333,7 +333,7 @@ export function ProduccionView() {
                           : ""}
                     </p>
                   </div>
-                  <div className="p-3 bg-muted/30 rounded-lg col-span-2">
+                  <div className="p-3 bg-muted/30 rounded-lg xs:col-span-2 sm:col-span-1 col-span-1">
                     <p className="text-xs text-muted-foreground">Responsable</p>
                     <p className="font-medium">{selectedLot.responsable?.nombre || "Sin asignar"}</p>
                   </div>

@@ -47,7 +47,7 @@ export function ProduccionStats() {
   ];
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 sm:gap-4">
       {statItems.map((item, idx) => {
         const Icon = item.icon;
         return (
@@ -56,20 +56,20 @@ export function ProduccionStats() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: idx * 0.1 }}
-            className="p-4 rounded-lg bg-card border border-border shadow-sm"
+            className="p-3 sm:p-4 rounded-lg bg-card border border-border shadow-sm"
           >
             <div className="flex items-center gap-2">
-              <Icon className={`h-5 w-5 ${item.color}`} />
+              <Icon className={`h-4 w-4 sm:h-5 sm:w-5 ${item.color}`} />
               <motion.span
                 key={item.value}
                 initial={{ scale: 0.8, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                className="text-2xl font-bold"
+                className="text-xl sm:text-2xl font-bold"
               >
                 {item.value}
               </motion.span>
             </div>
-            <p className="text-sm text-muted-foreground mt-1">{item.label}</p>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">{item.label}</p>
           </motion.div>
         );
       })}

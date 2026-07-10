@@ -1,10 +1,21 @@
 "use client";
 
+import { useMemo } from "react";
 import { motion } from "framer-motion";
-import { Filter, Thermometer, Droplets, Eye } from "lucide-react";
+import {
+  Filter,
+  Thermometer,
+  Droplets,
+  Eye,
+  Search,
+  SlidersHorizontal,
+  X,
+} from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -20,8 +31,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ActiveFilterTag } from "@/components/ui/filter-tag";
 import type { QualityCheck, QualityStatus } from "@/lib/types";
-import { useLots } from "@/contexts/lot-context";
 
 const gradeColors: Record<string, string> = {
   A: "bg-primary/10 text-primary border-primary/20",
@@ -63,28 +74,113 @@ export function CalidadTable({
   statusFilter,
   setStatusFilter,
 }: CalidadTableProps) {
+  const activeCount = useMemo(() => {
+    let n = 0;
+    if (searchTerm) n++;
+    if (statusFilter !== "all") n++;
+    return n;
+  }, [searchTerm, statusFilter]);
+
+  const hasActiveFilters = activeCount > 0;
+
+  const clearFilters = () => {
+    setSearchTerm("");
+    setStatusFilter("all");
+  };
+
   return (
     <div>
-      <div className="flex flex-col gap-4 mb-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-4">
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full sm:w-48">
-              <Filter className="mr-2 h-4 w-4" />
-              <SelectValue placeholder="Estado" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              <SelectItem value="pending">Pendientes</SelectItem>
-              <SelectItem value="in_progress">En Inspección</SelectItem>
-              <SelectItem value="passed">Aprobados</SelectItem>
-              <SelectItem value="passed_with_notes">
-                Aprobados con Observaciones
-              </SelectItem>
-              <SelectItem value="failed">Rechazados</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+      {/* ── Filter Card ── */}
+      <Card className="border-0 shadow-sm mb-4">
+        <CardContent className="p-4">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+              <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
+              Filtros
+              {hasActiveFilters && (
+                <Badge
+                  variant="secondary"
+                  className="h-5 w-5 p-0 flex items-center justify-center text-[10px] font-bold rounded-full bg-primary text-primary-foreground"
+                >
+                  {activeCount}
+                </Badge>
+              )}
+            </div>
+            {hasActiveFilters && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearFilters}
+                className="h-7 gap-1.5 text-xs text-muted-foreground hover:text-foreground px-2"
+              >
+                <X className="h-3 w-3" />
+                Limpiar filtros
+              </Button>
+            )}
+          </div>
+
+          {/* Filter grid */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {/* Search */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+              <Input
+                placeholder="Código de lote, inspector..."
+                className="pl-9 h-9 bg-muted/40 border-border/60 focus-visible:bg-background transition-colors"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+              {searchTerm && (
+                <button
+                  onClick={() => setSearchTerm("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Status */}
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="h-9 bg-muted/40 border-border/60 focus:bg-background transition-colors">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Filter className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <SelectValue placeholder="Estado" />
+                </div>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los estados</SelectItem>
+                <SelectItem value="pending">Pendientes</SelectItem>
+                <SelectItem value="in_progress">En Inspección</SelectItem>
+                <SelectItem value="passed">Aprobados</SelectItem>
+                <SelectItem value="passed_with_notes">
+                  Aprobados con Observaciones
+                </SelectItem>
+                <SelectItem value="failed">Rechazados</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Active filter tags */}
+          {hasActiveFilters && (
+            <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-border/60">
+              {searchTerm && (
+                <ActiveFilterTag
+                  label={`"${searchTerm}"`}
+                  onRemove={() => setSearchTerm("")}
+                />
+              )}
+              {statusFilter !== "all" && (
+                <ActiveFilterTag
+                  label={statusLabels[statusFilter as QualityStatus] ?? statusFilter}
+                  onRemove={() => setStatusFilter("all")}
+                />
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Mobile Card View */}
       <div className="md:hidden space-y-4">

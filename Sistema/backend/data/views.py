@@ -15,7 +15,7 @@ import uuid
 from .models import (
     Usuario, Proveedor, VariedadTabaco, EtapaProductiva, Lote,
     MovimientoLote, InspeccionCalidad, EvidenciaCalidad,
-    Observacion, Alerta, EventoSistema, Session
+    Observacion, Alerta, EventoSistema, Session, Notificacion, ConfiguracionSistema
 )
 from .serializers import (
     UsuarioSerializer, LoginSerializer, ProveedorSerializer,
@@ -23,7 +23,8 @@ from .serializers import (
     LoteListSerializer, LoteDetailSerializer, MovimientoLoteSerializer,
     InspeccionCalidadSerializer, EvidenciaCalidadSerializer,
     ObservacionSerializer, AlertaSerializer, EventoSistemaSerializer,
-    EstadisticasSerializer, TrazabilidadSerializer, SessionSerializer
+    EstadisticasSerializer, TrazabilidadSerializer, SessionSerializer,
+    NotificacionSerializer, ConfiguracionSistemaSerializer
 )
 from .permissions import IsAdminUser, IsSupervisorUser, IsOperarioUser, IsCalidadUser
 
@@ -740,9 +741,95 @@ class EventoSistemaViewSet(viewsets.ReadOnlyModelViewSet):
     
     @action(detail=False, methods=['get'])
     def recientes(self, request):
-        """Obtener eventos recientes (últimas 24 horas)"""
-        hace_24_horas = timezone.now() - timedelta(hours=24)
-        eventos = self.queryset.filter(fecha_hora__gte=hace_24_horas)
+        """Obtener eventos recientes (últimas 72 horas, máximo 100)"""
+        hace_72_horas = timezone.now() - timedelta(hours=72)
+        eventos = self.queryset.filter(fecha_hora__gte=hace_72_horas).order_by('-fecha_hora')[:100]
         serializer = self.get_serializer(eventos, many=True)
         return Response(serializer.data)
 
+
+
+class NotificacionViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet para el modelo Notificacion.
+    Cada usuario solo puede ver sus propias notificaciones.
+    """
+    serializer_class = NotificacionSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_fields = ['tipo', 'categoria', 'leida']
+    ordering_fields = ['fecha_creacion']
+    ordering = ['-fecha_creacion']
+
+    def get_queryset(self):
+        return Notificacion.objects.filter(
+            usuario=self.request.user
+        ).select_related('usuario', 'lote')
+
+    def perform_create(self, serializer):
+        serializer.save(usuario=self.request.user)
+
+    @action(detail=False, methods=['get'])
+    def no_leidas(self, request):
+        """Retorna sólo las notificaciones no leídas del usuario autenticado."""
+        qs = self.get_queryset().filter(leida=False)
+        serializer = self.get_serializer(qs, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['post'])
+    def marcar_todas_leidas(self, request):
+        """Marca todas las notificaciones del usuario como leídas."""
+        updated = self.get_queryset().filter(leida=False).update(leida=True)
+        return Response({'detail': f'{updated} notificaciones marcadas como leídas.'})
+
+    @action(detail=True, methods=['post'])
+    def marcar_leida(self, request, pk=None):
+        """Marca una notificación individual como leída."""
+        notif = self.get_object()
+        notif.leida = True
+        notif.save(update_fields=['leida'])
+        return Response({'detail': 'Notificación marcada como leída.'})
+
+    @action(detail=False, methods=['get'])
+    def contador(self, request):
+        """Devuelve el conteo de notificaciones no leídas."""
+        count = self.get_queryset().filter(leida=False).count()
+        return Response({'no_leidas': count})
+
+
+class ConfiguracionSistemaViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet para la configuración del sistema (clave-valor).
+    Solo admins pueden modificar; el resto solo puede leer.
+    """
+    queryset = ConfiguracionSistema.objects.all()
+    serializer_class = ConfiguracionSistemaSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['clave', 'descripcion']
+    ordering_fields = ['clave', 'fecha_actualizacion']
+    ordering = ['clave']
+
+    def get_permissions(self):
+        if self.action in ('create', 'update', 'partial_update', 'destroy'):
+            # Solo administradores pueden modificar la configuración
+            return [IsAuthenticated(), IsAdminUser()]
+        return [IsAuthenticated()]
+
+    @action(detail=False, methods=['get'])
+    def por_clave(self, request):
+        """Obtiene una configuración por su clave. ?clave=mi_clave"""
+        clave = request.query_params.get('clave')
+        if not clave:
+            return Response(
+                {'detail': 'Se requiere el parámetro ?clave='},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        try:
+            config = ConfiguracionSistema.objects.get(clave=clave)
+            return Response(ConfiguracionSistemaSerializer(config).data)
+        except ConfiguracionSistema.DoesNotExist:
+            return Response(
+                {'detail': f'Configuración "{clave}" no encontrada.'},
+                status=status.HTTP_404_NOT_FOUND
+            )

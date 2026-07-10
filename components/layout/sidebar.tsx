@@ -285,7 +285,7 @@ export function MobileSidebar() {
           <Menu className="h-5 w-5" />
         </Button>
       </SheetTrigger>
-      <SheetContent side="left" className="w-72 p-0">
+      <SheetContent side="left" className="w-[280px] sm:w-72 p-0 flex flex-col">
         <SheetHeader className="p-0 border-b">
           <SheetTitle className="sr-only">Menú de navegación</SheetTitle>
         </SheetHeader>

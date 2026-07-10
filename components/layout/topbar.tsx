@@ -66,10 +66,12 @@ export function Topbar() {
 
   if (!mounted) {
     return (
-      <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b bg-background px-4 lg:px-6">
+      <header className="sticky top-0 z-40 flex h-16 items-center gap-2 sm:gap-4 border-b bg-background px-3 sm:px-4 lg:px-6">
         <MobileSidebar />
-        <Breadcrumbs />
-        <div className="ml-auto flex items-center gap-2">
+        <div className="min-w-0 flex-1 overflow-hidden">
+          <Breadcrumbs />
+        </div>
+        <div className="ml-auto flex items-center gap-1 sm:gap-2 shrink-0">
           <div className="hidden md:block w-64 h-9 bg-muted/50 rounded-md" />
           <div className="md:hidden w-9 h-9 bg-muted/50 rounded-md" />
           <div className="w-9 h-9 bg-muted/50 rounded-md" />
@@ -80,12 +82,14 @@ export function Topbar() {
   }
 
   return (
-    <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b bg-background px-4 lg:px-6">
+    <header className="sticky top-0 z-40 flex h-16 items-center gap-2 sm:gap-4 border-b bg-background px-3 sm:px-4 lg:px-6">
       <MobileSidebar />
 
-      <Breadcrumbs />
+      <div className="min-w-0 flex-1 overflow-hidden">
+        <Breadcrumbs />
+      </div>
 
-      <div className="ml-auto flex items-center gap-2">
+      <div className="ml-auto flex items-center gap-1 sm:gap-2 shrink-0">
         {/* Desktop search - SOLO visible en desktop */}
         <div ref={searchContainerRef} className="relative hidden md:block">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

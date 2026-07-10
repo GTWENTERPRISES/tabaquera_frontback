@@ -4,7 +4,7 @@ from django.contrib.auth.password_validation import validate_password
 from .models import (
     Usuario, Proveedor, VariedadTabaco, EtapaProductiva, Lote,
     MovimientoLote, InspeccionCalidad, EvidenciaCalidad,
-    Observacion, Alerta, EventoSistema, Session
+    Observacion, Alerta, EventoSistema, Session, Notificacion, ConfiguracionSistema
 )
 
 
@@ -257,9 +257,23 @@ class LoteDetailSerializer(serializers.ModelSerializer):
 
 class EventoSistemaSerializer(serializers.ModelSerializer):
     """Serializer para el modelo EventoSistema"""
-    usuario_nombre = serializers.CharField(source='usuario.nombre_completo', read_only=True)
-    lote_codigo = serializers.CharField(source='lote.codigo', read_only=True)
-    
+    usuario_nombre = serializers.SerializerMethodField()
+    lote_codigo = serializers.SerializerMethodField()
+
+    def get_usuario_nombre(self, obj):
+        if obj.usuario:
+            return obj.usuario.nombre_completo
+        return "Sistema"
+
+    def get_lote_codigo(self, obj):
+        # Si el lote todavía existe, usar su código; si fue eliminado (SET NULL),
+        # intentar obtenerlo desde datos_adicionales si fue guardado ahí.
+        if obj.lote:
+            return obj.lote.codigo
+        if obj.datos_adicionales and isinstance(obj.datos_adicionales, dict):
+            return obj.datos_adicionales.get('codigo') or obj.datos_adicionales.get('lote_codigo')
+        return None
+
     class Meta:
         model = EventoSistema
         fields = [
@@ -267,6 +281,27 @@ class EventoSistemaSerializer(serializers.ModelSerializer):
             'descripcion', 'datos_adicionales', 'fecha_hora', 'ip_address'
         ]
         read_only_fields = ['id', 'fecha_hora']
+
+
+class NotificacionSerializer(serializers.ModelSerializer):
+    """Serializer para el modelo Notificacion"""
+    usuario_nombre = serializers.CharField(source='usuario.nombre_completo', read_only=True)
+    lote_codigo_display = serializers.SerializerMethodField()
+
+    def get_lote_codigo_display(self, obj):
+        if obj.lote:
+            return obj.lote.codigo
+        return obj.lote_codigo or None
+
+    class Meta:
+        model = Notificacion
+        fields = [
+            'id', 'usuario', 'usuario_nombre',
+            'lote', 'lote_codigo_display',
+            'tipo', 'categoria', 'titulo', 'mensaje',
+            'url_accion', 'leida', 'fecha_creacion',
+        ]
+        read_only_fields = ['id', 'fecha_creacion', 'usuario']
 
 
 class EstadisticasSerializer(serializers.Serializer):
@@ -289,3 +324,12 @@ class TrazabilidadSerializer(serializers.Serializer):
     timeline = serializers.ListField()
     tiempo_total_minutos = serializers.IntegerField()
     tiempo_por_etapa = serializers.DictField()
+
+
+class ConfiguracionSistemaSerializer(serializers.ModelSerializer):
+    """Serializer para el modelo ConfiguracionSistema"""
+
+    class Meta:
+        model = ConfiguracionSistema
+        fields = ['id', 'clave', 'valor', 'descripcion', 'fecha_actualizacion']
+        read_only_fields = ['id', 'fecha_actualizacion']

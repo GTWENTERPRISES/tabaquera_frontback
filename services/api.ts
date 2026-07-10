@@ -252,6 +252,29 @@ export interface TimelineItem {
   datos: any;
 }
 
+export interface NotificacionData {
+  id: number;
+  usuario: number;
+  usuario_nombre: string;
+  lote?: number;
+  lote_codigo_display?: string;
+  tipo: 'info' | 'warning' | 'critical';
+  categoria: string;
+  titulo: string;
+  mensaje: string;
+  url_accion: string;
+  leida: boolean;
+  fecha_creacion: string;
+}
+
+export interface ConfiguracionData {
+  id: string;
+  clave: string;
+  valor: string;
+  descripcion: string;
+  fecha_actualizacion: string;
+}
+
 // Clase de servicio API
 class ApiService {
   private baseUrl: string;
@@ -771,6 +794,72 @@ class ApiService {
       body: JSON.stringify({ identifier, code, new_password: newPassword }),
     });
     return this.handleResponse(response);
+  }
+
+  // ==================== NOTIFICACIONES ====================
+
+  async getNotificaciones(params?: URLSearchParams): Promise<PaginatedResponse<NotificacionData>> {
+    const url = params ? `${this.baseUrl}/notificaciones/?${params}` : `${this.baseUrl}/notificaciones/`;
+    const response = await fetch(url, { headers: this.getHeaders() });
+    return this.handleResponse<PaginatedResponse<NotificacionData>>(response);
+  }
+
+  async getAllNotificaciones(params?: URLSearchParams): Promise<NotificacionData[]> {
+    return this.getAllPaginated<NotificacionData>('/notificaciones/', params);
+  }
+
+  async getNotificacionesNoLeidas(): Promise<NotificacionData[]> {
+    const response = await fetch(`${this.baseUrl}/notificaciones/no_leidas/`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<NotificacionData[]>(response);
+  }
+
+  async getContadorNoLeidas(): Promise<{ no_leidas: number }> {
+    const response = await fetch(`${this.baseUrl}/notificaciones/contador/`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<{ no_leidas: number }>(response);
+  }
+
+  async marcarNotificacionLeida(id: number): Promise<{ detail: string }> {
+    const response = await fetch(`${this.baseUrl}/notificaciones/${id}/marcar_leida/`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<{ detail: string }>(response);
+  }
+
+  async marcarTodasNotificacionesLeidas(): Promise<{ detail: string }> {
+    const response = await fetch(`${this.baseUrl}/notificaciones/marcar_todas_leidas/`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<{ detail: string }>(response);
+  }
+
+  // ==================== CONFIGURACIÓN ====================
+
+  async getConfiguracion(params?: URLSearchParams): Promise<PaginatedResponse<ConfiguracionData>> {
+    const url = params ? `${this.baseUrl}/configuracion/?${params}` : `${this.baseUrl}/configuracion/`;
+    const response = await fetch(url, { headers: this.getHeaders() });
+    return this.handleResponse<PaginatedResponse<ConfiguracionData>>(response);
+  }
+
+  async getConfiguracionPorClave(clave: string): Promise<ConfiguracionData> {
+    const response = await fetch(`${this.baseUrl}/configuracion/por_clave/?clave=${encodeURIComponent(clave)}`, {
+      headers: this.getHeaders(),
+    });
+    return this.handleResponse<ConfiguracionData>(response);
+  }
+
+  async updateConfiguracion(id: number, data: Partial<ConfiguracionData>): Promise<ConfiguracionData> {
+    const response = await fetch(`${this.baseUrl}/configuracion/${id}/`, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse<ConfiguracionData>(response);
   }
 }
 

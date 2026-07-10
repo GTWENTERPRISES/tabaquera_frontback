@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useEffect, useState } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -8,7 +8,6 @@ import { z } from "zod";
 import { motion } from "framer-motion";
 import { Loader2, CheckCircle } from "lucide-react";
 import type { Lot } from "@/lib/types";
-import { SUPPLIERS, VARIETIES } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -29,6 +28,7 @@ import {
 } from "@/components/ui/select";
 import { scrollPositions } from "@/components/ScrollRestoration";
 import { api } from "@/services/api";
+import type { Proveedor, VariedadTabaco } from "@/services/api";
 import { toast } from "sonner";
 
 const lotSchema = z.object({
@@ -69,6 +69,30 @@ export function LotForm({
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
+  // Load suppliers and varieties from the real API
+  const [proveedores, setProveedores] = useState<Proveedor[]>([]);
+  const [variedades, setVariedades] = useState<VariedadTabaco[]>([]);
+  const [loadingCatalogs, setLoadingCatalogs] = useState(true);
+
+  useEffect(() => {
+    const loadCatalogs = async () => {
+      try {
+        const [prov, vari] = await Promise.all([
+          api.getAllProveedores(),
+          api.getAllVariedadesTabaco(),
+        ]);
+        setProveedores(prov.filter(p => p.estado === 'activo'));
+        setVariedades(vari.filter(v => v.activo));
+      } catch (error) {
+        console.error("Error loading catalogs:", error);
+        toast.error("Error al cargar proveedores y variedades");
+      } finally {
+        setLoadingCatalogs(false);
+      }
+    };
+    loadCatalogs();
+  }, []);
+
   const currentUrl = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
 
   const defaultValues = useMemo<LotFormValues>(
@@ -101,19 +125,16 @@ export function LotForm({
 
   const onSubmit = async (data: LotFormValues) => {
     try {
+      const proveedor = proveedores.find(p => p.nombre === data.supplier);
+      const variedad = variedades.find(v => v.nombre === data.variety);
+
+      if (!proveedor || !variedad) {
+        toast.error("Error: Proveedor o variedad no encontrados");
+        return;
+      }
+
       if (initialValues?.id) {
         // Actualizar lote existente
-        const proveedores = await api.getProveedores();
-        const variedades = await api.getVariedadesTabaco();
-
-        const proveedor = proveedores.results.find(p => p.nombre === data.supplier);
-        const variedad = variedades.results.find(v => v.nombre === data.variety);
-
-        if (!proveedor || !variedad) {
-          toast.error("Error: Proveedor o variedad no encontrados");
-          return;
-        }
-
         await api.updateLote(parseInt(initialValues.id), {
           proveedor_id: proveedor.id,
           variedad_id: variedad.id,
@@ -123,6 +144,19 @@ export function LotForm({
           observaciones_iniciales: data.notes || '',
         });
         toast.success("Lote actualizado exitosamente");
+      } else {
+        // Crear nuevo lote
+        await api.createLote({
+          proveedor_id: proveedor.id,
+          variedad_id: variedad.id,
+          origen: data.supplier, // fallback; ideally a separate origin field
+          peso_inicial_kg: data.currentWeight,
+          peso_actual_kg: data.currentWeight,
+          cantidad_bultos: data.quantityBales,
+          fecha_ingreso: data.entryDate,
+          observaciones_iniciales: data.notes || '',
+        });
+        toast.success("Lote creado exitosamente");
       }
       router.push("/dashboard/lotes");
     } catch (error) {
@@ -161,16 +195,17 @@ export function LotForm({
                 <Select
                   onValueChange={field.onChange}
                   defaultValue={field.value}
+                  disabled={loadingCatalogs}
                 >
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar proveedor" />
+                      <SelectValue placeholder={loadingCatalogs ? "Cargando..." : "Seleccionar proveedor"} />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {SUPPLIERS.map((supplier) => (
-                      <SelectItem key={supplier} value={supplier}>
-                        {supplier}
+                    {proveedores.map((p) => (
+                      <SelectItem key={p.id} value={p.nombre}>
+                        {p.nombre}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -233,16 +268,17 @@ export function LotForm({
                 <Select
                   onValueChange={field.onChange}
                   defaultValue={field.value}
+                  disabled={loadingCatalogs}
                 >
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar tipo de tabaco" />
+                      <SelectValue placeholder={loadingCatalogs ? "Cargando..." : "Seleccionar tipo de tabaco"} />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {VARIETIES.map((variety) => (
-                      <SelectItem key={variety} value={variety}>
-                        {variety}
+                    {variedades.map((v) => (
+                      <SelectItem key={v.id} value={v.nombre}>
+                        {v.nombre}
                       </SelectItem>
                     ))}
                   </SelectContent>

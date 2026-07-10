@@ -60,63 +60,63 @@ export function UsuariosView() {
         </Button>
       </div>
 
-      <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
+      <div className="grid gap-3 sm:gap-4 grid-cols-2 md:grid-cols-4">
         <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-xl bg-muted flex items-center justify-center">
-                <Users className="h-6 w-6 text-muted-foreground" />
+          <CardContent className="pt-4 sm:pt-6">
+            <div className="flex items-center gap-2 sm:gap-4">
+              <div className="h-9 w-9 sm:h-12 sm:w-12 rounded-xl bg-muted flex items-center justify-center shrink-0">
+                <Users className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">
+                <p className="text-xl sm:text-2xl font-bold text-foreground">
                   {stats.total}
                 </p>
-                <p className="text-sm text-muted-foreground">Total Usuarios</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">Total Usuarios</p>
               </div>
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                <UserCheck className="h-6 w-6 text-primary" />
+          <CardContent className="pt-4 sm:pt-6">
+            <div className="flex items-center gap-2 sm:gap-4">
+              <div className="h-9 w-9 sm:h-12 sm:w-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                <UserCheck className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">
+                <p className="text-xl sm:text-2xl font-bold text-foreground">
                   {stats.active}
                 </p>
-                <p className="text-sm text-muted-foreground">Activos</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">Activos</p>
               </div>
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-xl bg-accent/10 flex items-center justify-center">
-                <Shield className="h-6 w-6 text-accent" />
+          <CardContent className="pt-4 sm:pt-6">
+            <div className="flex items-center gap-2 sm:gap-4">
+              <div className="h-9 w-9 sm:h-12 sm:w-12 rounded-xl bg-accent/10 flex items-center justify-center shrink-0">
+                <Shield className="h-5 w-5 sm:h-6 sm:w-6 text-accent" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">
+                <p className="text-xl sm:text-2xl font-bold text-foreground">
                   {stats.admins}
                 </p>
-                <p className="text-sm text-muted-foreground">Administradores</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">Administradores</p>
               </div>
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-xl bg-chart-2/10 flex items-center justify-center">
-                <Building className="h-6 w-6 text-chart-2" />
+          <CardContent className="pt-4 sm:pt-6">
+            <div className="flex items-center gap-2 sm:gap-4">
+              <div className="h-9 w-9 sm:h-12 sm:w-12 rounded-xl bg-chart-2/10 flex items-center justify-center shrink-0">
+                <Building className="h-5 w-5 sm:h-6 sm:w-6 text-chart-2" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">
+                <p className="text-xl sm:text-2xl font-bold text-foreground">
                   {stats.operators}
                 </p>
-                <p className="text-sm text-muted-foreground">Operadores</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">Operadores</p>
               </div>
             </div>
           </CardContent>

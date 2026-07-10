@@ -37,14 +37,15 @@ export function ReportesView() {
             Visualiza metricas y genera reportes del sistema
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={handleLastMonth}>
-            <Clock className="mr-2 h-4 w-4" />
-            Ultimo Mes
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" onClick={handleLastMonth} className="gap-2">
+            <Clock className="h-4 w-4" />
+            <span className="hidden sm:inline">Ultimo Mes</span>
+            <span className="sm:hidden">Mes</span>
           </Button>
-          <Button variant="ghost" onClick={handleExportPDF} className="gap-2">
+          <Button variant="ghost" size="sm" onClick={handleExportPDF} className="gap-2">
             <FileText className="h-4 w-4" />
-            Exportar PDF
+            <span className="hidden sm:inline">Exportar PDF</span>
           </Button>
         </div>
       </div>
@@ -89,7 +90,7 @@ export function ReportesView() {
       <StatsCards stats={stats} />
 
       <Tabs defaultValue="production" className="space-y-6">
-        <TabsList className="grid w-full max-w-md grid-cols-3">
+        <TabsList className="grid w-full grid-cols-3 sm:max-w-md">
           <TabsTrigger value="production">Produccion</TabsTrigger>
           <TabsTrigger value="quality">Calidad</TabsTrigger>
           <TabsTrigger value="efficiency">Eficiencia</TabsTrigger>
