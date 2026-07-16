@@ -45,21 +45,26 @@ class AuthViewSet(viewsets.GenericViewSet):
         if user.two_factor_enabled:
             code = request.data.get('code')
             if not code:
-                # Send code
+                # Generar y enviar código 2FA
                 code = user.generate_two_factor_code()
-                # Send email (we'll just log for now, in production use send_mail)
                 print(f"2FA code for {user.email}: {code}")
-                if settings.EMAIL_HOST:
-                    try:
-                        send_mail(
-                            'Código de verificación',
-                            f'Tu código de verificación es: {code}',
-                            settings.DEFAULT_FROM_EMAIL,
-                            [user.email],
-                            fail_silently=False,
-                        )
-                    except Exception as e:
-                        print(f"Error sending email: {e}")
+                try:
+                    send_mail(
+                        subject='Código de verificación - Golden Trace',
+                        message=(
+                            f'Hola {user.nombres},\n\n'
+                            f'Tu código de verificación de dos factores es:\n\n'
+                            f'    {code}\n\n'
+                            f'Este código expira en 10 minutos.\n\n'
+                            f'Si no solicitaste este código, ignora este mensaje.\n\n'
+                            f'— Equipo Golden Trace'
+                        ),
+                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        recipient_list=[user.email],
+                        fail_silently=False,
+                    )
+                except Exception as e:
+                    print(f"Error enviando email 2FA: {e}")
                 return Response({
                     'requires_2fa': True,
                     'message': 'Código de verificación enviado'
@@ -72,13 +77,18 @@ class AuthViewSet(viewsets.GenericViewSet):
         # Crear o recuperar token
         token, created = Token.objects.get_or_create(user=user)
 
-        # Create session record
+        # Cerrar sesiones anteriores del mismo usuario (limpiar antes de crear nueva)
+        Session.objects.filter(usuario=user, es_actual=True).update(es_actual=False)
+
+        # Crear nueva sesión
         session_token = str(uuid.uuid4())
+        ip = self.get_client_ip(request)
+        user_agent = request.META.get('HTTP_USER_AGENT', 'Unknown')
         Session.objects.create(
             usuario=user,
-            dispositivo=request.META.get('HTTP_USER_AGENT', 'Unknown')[:50],
-            navegador=request.META.get('HTTP_USER_AGENT', 'Unknown')[:100],
-            ip=self.get_client_ip(request),
+            dispositivo=user_agent[:50],
+            navegador=user_agent[:100],
+            ip=ip,
             es_actual=True,
             token=session_token
         )
@@ -99,7 +109,7 @@ class AuthViewSet(viewsets.GenericViewSet):
 
     @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])
     def logout(self, request):
-        """Logout de usuario y eliminación de token"""
+        """Logout de usuario — cierra la sesión actual y elimina el token"""
         # Registrar evento de logout
         EventoSistema.objects.create(
             tipo=EventoSistema.TipoEvento.LOGOUT,
@@ -108,18 +118,20 @@ class AuthViewSet(viewsets.GenericViewSet):
             ip_address=self.get_client_ip(request)
         )
 
-        # Update session
+        # Marcar sesión actual como inactiva
         session_token = request.data.get('session_token')
         if session_token:
-            try:
-                session = Session.objects.get(token=session_token)
-                session.es_actual = False
-                session.save()
-            except Session.DoesNotExist:
-                pass
+            Session.objects.filter(token=session_token).update(es_actual=False)
+        else:
+            # Si no viene session_token, cerrar todas las sesiones activas del usuario
+            Session.objects.filter(usuario=request.user, es_actual=True).update(es_actual=False)
 
-        # Eliminar token
-        request.user.auth_token.delete()
+        # Eliminar token de autenticación
+        try:
+            request.user.auth_token.delete()
+        except Exception:
+            pass
+
         return Response({'detail': 'Sesión cerrada exitosamente'})
 
     @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
@@ -136,9 +148,26 @@ class AuthViewSet(viewsets.GenericViewSet):
         request.user.save()
 
         if enabled:
-            # Send initial code
+            # Enviar código de prueba al activar 2FA
             code = request.user.generate_two_factor_code()
-            print(f"2FA code for {request.user.email}: {code}")
+            print(f"2FA activation code for {request.user.email}: {code}")
+            try:
+                send_mail(
+                    subject='2FA activado - Golden Trace',
+                    message=(
+                        f'Hola {request.user.nombres},\n\n'
+                        f'Has activado la autenticación de dos factores en tu cuenta.\n\n'
+                        f'Tu código de verificación inicial es:\n\n'
+                        f'    {code}\n\n'
+                        f'Este código expira en 10 minutos.\n\n'
+                        f'— Equipo Golden Trace'
+                    ),
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[request.user.email],
+                    fail_silently=False,
+                )
+            except Exception as e:
+                print(f"Error enviando email 2FA activación: {e}")
 
         return Response({
             'two_factor_enabled': request.user.two_factor_enabled
@@ -152,17 +181,24 @@ class AuthViewSet(viewsets.GenericViewSet):
 
         code = request.user.generate_two_factor_code()
         print(f"2FA code for {request.user.email}: {code}")
-        if settings.EMAIL_HOST:
-            try:
-                send_mail(
-                    'Código de verificación',
-                    f'Tu código de verificación es: {code}',
-                    settings.DEFAULT_FROM_EMAIL,
-                    [request.user.email],
-                    fail_silently=False,
-                )
-            except Exception as e:
-                print(f"Error sending email: {e}")
+        try:
+            send_mail(
+                subject='Código de verificación - Golden Trace',
+                message=(
+                    f'Hola {request.user.nombres},\n\n'
+                    f'Tu código de verificación de dos factores es:\n\n'
+                    f'    {code}\n\n'
+                    f'Este código expira en 10 minutos.\n\n'
+                    f'Si no solicitaste este código, ignora este mensaje.\n\n'
+                    f'— Equipo Golden Trace'
+                ),
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[request.user.email],
+                fail_silently=False,
+            )
+        except Exception as e:
+            print(f"Error enviando email 2FA: {e}")
+            return Response({'detail': 'Error al enviar el código, intenta de nuevo'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         return Response({'detail': 'Código enviado'})
 
@@ -185,17 +221,25 @@ class AuthViewSet(viewsets.GenericViewSet):
 
         code = user.generate_reset_password_code()
         print(f"Password reset code for {user.email}: {code}")
-        if settings.EMAIL_HOST:
-            try:
-                send_mail(
-                    'Código de recuperación de contraseña',
-                    f'Tu código para recuperar tu contraseña es: {code}',
-                    settings.DEFAULT_FROM_EMAIL,
-                    [user.email],
-                    fail_silently=False,
-                )
-            except Exception as e:
-                print(f"Error sending email: {e}")
+        try:
+            send_mail(
+                subject='Recuperación de contraseña - Golden Trace',
+                message=(
+                    f'Hola {user.nombres},\n\n'
+                    f'Recibimos una solicitud para recuperar la contraseña de tu cuenta.\n\n'
+                    f'Tu código de recuperación es:\n\n'
+                    f'    {code}\n\n'
+                    f'Este código expira en 30 minutos.\n\n'
+                    f'Si no solicitaste este cambio, puedes ignorar este mensaje. '
+                    f'Tu contraseña actual seguirá siendo la misma.\n\n'
+                    f'— Equipo Golden Trace'
+                ),
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user.email],
+                fail_silently=False,
+            )
+        except Exception as e:
+            print(f"Error enviando email de recuperación: {e}")
 
         return Response({'detail': 'Si el usuario existe, se ha enviado un código a su correo'}, status=status.HTTP_200_OK)
 
@@ -247,6 +291,26 @@ class AuthViewSet(viewsets.GenericViewSet):
         else:
             return Response({'detail': 'Código inválido o expirado'}, status=status.HTTP_400_BAD_REQUEST)
 
+    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])
+    def change_password(self, request):
+        """Cambiar contraseña del usuario autenticado"""
+        user = request.user
+        current_password = request.data.get('current_password')
+        new_password = request.data.get('new_password')
+        
+        if not current_password or not new_password:
+            return Response({'detail': 'Se requiere la contraseña actual y la nueva'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if not user.check_password(current_password):
+            return Response({'detail': 'Contraseña actual incorrecta'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        user.set_password(new_password)
+        user.save()
+        
+        # Invalidate all tokens and sessions except current?
+        # For simplicity, let's just save and return success
+        return Response({'detail': 'Contraseña actualizada exitosamente'}, status=status.HTTP_200_OK)
+
     @staticmethod
     def get_client_ip(request):
         """Obtener IP del cliente"""
@@ -265,11 +329,15 @@ class SessionViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return self.queryset.filter(usuario=self.request.user)
+        # Solo devolver sesiones ACTIVAS del usuario actual
+        return self.queryset.filter(
+            usuario=self.request.user,
+            es_actual=True
+        ).order_by('-fecha_creacion')
 
     @action(detail=True, methods=['post'])
     def terminate(self, request, pk=None):
-        """Terminar una sesión"""
+        """Terminar una sesión específica"""
         try:
             session = self.get_object()
             session.es_actual = False
@@ -282,8 +350,10 @@ class SessionViewSet(viewsets.ReadOnlyModelViewSet):
     def terminate_other(self, request):
         """Terminar todas las sesiones excepto la actual"""
         session_token = request.data.get('session_token')
-        sessions = self.get_queryset().exclude(token=session_token)
-        sessions.update(es_actual=False)
+        qs = Session.objects.filter(usuario=request.user, es_actual=True)
+        if session_token:
+            qs = qs.exclude(token=session_token)
+        qs.update(es_actual=False)
         return Response({'detail': 'Sesiones terminadas'})
 
 
@@ -559,19 +629,34 @@ class LoteViewSet(viewsets.ModelViewSet):
         timeline.sort(key=lambda x: x['fecha'], reverse=True)
         
         # Calcular tiempo total y tiempo por etapa
-        movimientos_finalizacion = lote.movimientos.filter(
-            tipo_movimiento=MovimientoLote.TipoMovimiento.FINALIZACION
-        )
-        tiempo_total_minutos = movimientos_finalizacion.aggregate(
-            total=Sum('tiempo_trabajo_minutos')
-        )['total'] or 0
-        
+        # Estrategia: usar tiempo_trabajo_minutos si esta disponible,
+        # si no, calcular desde fecha_hora del movimiento INICIO al FINALIZACION de cada etapa
+        def calcular_tiempo_etapa(etapa_obj):
+            movs = lote.movimientos.filter(etapa_destino=etapa_obj).order_by('fecha_hora')
+            inicio_dt = None
+            total_minutos = 0
+            for mov in movs:
+                if mov.tipo_movimiento in (
+                    MovimientoLote.TipoMovimiento.INICIO,
+                    MovimientoLote.TipoMovimiento.REANUDACION,
+                ):
+                    inicio_dt = mov.fecha_hora
+                elif mov.tipo_movimiento == MovimientoLote.TipoMovimiento.FINALIZACION:
+                    if mov.tiempo_trabajo_minutos:
+                        total_minutos += mov.tiempo_trabajo_minutos
+                    elif inicio_dt:
+                        diff = (mov.fecha_hora - inicio_dt).total_seconds() / 60
+                        pausa = mov.tiempo_pausa_minutos or 0
+                        total_minutos += max(0, int(diff) - pausa)
+                    inicio_dt = None
+            return total_minutos
+
         tiempo_por_etapa = {}
+        tiempo_total_minutos = 0
         for etapa in EtapaProductiva.objects.all():
-            tiempo = movimientos_finalizacion.filter(etapa_origen=etapa).aggregate(
-                total=Sum('tiempo_trabajo_minutos')
-            )['total'] or 0
-            tiempo_por_etapa[etapa.nombre] = tiempo
+            mins = calcular_tiempo_etapa(etapa)
+            tiempo_por_etapa[etapa.nombre] = mins
+            tiempo_total_minutos += mins
         
         data = {
             'lote': LoteDetailSerializer(lote).data,
@@ -582,6 +667,25 @@ class LoteViewSet(viewsets.ModelViewSet):
         
         return Response(data)
     
+    @action(detail=False, methods=['get'], permission_classes=[AllowAny])
+    def verificar(self, request):
+        """Endpoint público para verificar un lote por código (usado desde el QR)"""
+        codigo = request.query_params.get('codigo', '').strip()
+        if not codigo:
+            return Response({'error': 'Se requiere el parámetro "codigo"'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            lote = Lote.objects.select_related(
+                'proveedor', 'variedad', 'etapa_actual', 'responsable_actual', 'creado_por'
+            ).prefetch_related(
+                'movimientos', 'inspecciones', 'observaciones', 'alertas'
+            ).get(codigo__iexact=codigo)
+        except Lote.DoesNotExist:
+            return Response({'error': 'Lote no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = LoteDetailSerializer(lote)
+        return Response(serializer.data)
+
     @action(detail=False, methods=['get'])
     def estadisticas(self, request):
         """Obtener estadísticas generales"""
